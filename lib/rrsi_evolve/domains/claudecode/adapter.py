@@ -48,6 +48,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import queue
 import threading
 import time
 import uuid
@@ -163,6 +164,57 @@ def _signal_group(proc, sig) -> None:
         os.killpg(proc.pid, sig)
     except (ProcessLookupError, PermissionError, OSError):
         pass
+
+
+def _converse(proc, turns: list[str], out, timeout_s: float):
+    """Feed `turns` to a `--input-format stream-json` session one at a time:
+    each after the previous turn's result event. stdout is copied to `out`
+    by a reader thread. Returns (timed_out, reader thread)."""
+    deadline = time.monotonic() + timeout_s
+    results: queue.Queue = queue.Queue()
+
+    def pump():
+        try:
+            for raw in proc.stdout:
+                out.write(raw)
+                out.flush()
+                if b'"result"' not in raw:
+                    continue
+                try:
+                    ev = json.loads(raw)
+                except ValueError:
+                    continue
+                if isinstance(ev, dict) and ev.get("type") == "result":
+                    results.put(ev)
+        finally:
+            results.put(None)
+
+    th = threading.Thread(target=pump, daemon=True)
+    th.start()
+    try:
+        for text in turns:
+            msg = {"type": "user", "message": {"role": "user",
+                                               "content": [{"type": "text", "text": text}]}}
+            proc.stdin.write((json.dumps(msg, ensure_ascii=False) + "\n").encode())
+            proc.stdin.flush()
+            try:
+                ev = results.get(timeout=max(0.0, deadline - time.monotonic()))
+            except queue.Empty:
+                return True, th
+            if ev is None or ev.get("is_error"):
+                break           # the session ended or failed: no point going on
+        proc.stdin.close()
+        proc.wait(timeout=max(0.1, deadline - time.monotonic()))
+        return False, th
+    except (BrokenPipeError, ValueError):
+        # the session exited early; what it wrote is in `out`
+        try:
+            proc.wait(timeout=max(0.1, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            return True, th
+        return False, th
+    except subprocess.TimeoutExpired:
+        return True, th
 
 
 def _killpg(proc) -> None:
@@ -611,7 +663,21 @@ class ClaudeCodeDomain(Domain):
             if not (math.isfinite(weight) and weight > 0):
                 raise SystemExit(f"claudecode domain: {tj}: weight must be a number > 0, "
                                  f"not {raw.get('weight')!r}")
+            # "turns": several user messages, each sent after the previous
+            # turn's result, in one session (failures that need history)
+            turns = raw.get("turns")
+            if turns is not None:
+                if not (isinstance(turns, list) and turns and
+                        all(isinstance(t, str) and t.strip() for t in turns)):
+                    raise SystemExit(f"claudecode domain: {tj}: turns must be a non-empty "
+                                     f"list of non-empty strings")
+                if prompt:
+                    raise SystemExit(f"claudecode domain: {tj}: give prompt or turns, "
+                                     f"not both")
+                prompt = "\n\n".join(f"[user turn {i + 1}/{len(turns)}]\n{t}"
+                                      for i, t in enumerate(turns))
             out[tid] = {"prompt": str(prompt or ""),
+                        "turns": list(turns) if turns else None,
                         "split": raw.get("split", "evolve"),
                         "timeout_s": int(raw.get("timeout_s", self.task_timeout_s)),
                         "weight": weight}
@@ -1220,7 +1286,8 @@ class ClaudeCodeDomain(Domain):
         return pins
 
     def _policy_cmd(self, ws: str, pins: dict | None = None,
-                    wrapper: list[str] | None = None, binary: str | None = None) -> list[str]:
+                    wrapper: list[str] | None = None, binary: str | None = None,
+                    multi_turn: bool = False) -> list[str]:
         if wrapper is None:
             wrapper = [a.replace("{ws}", ws) for a in self.policy_wrapper]
         pins = self._pins(ws, None, None, None) if pins is None else pins
@@ -1230,6 +1297,9 @@ class ClaudeCodeDomain(Domain):
                "--setting-sources", "project,local",
                "--settings", pinned_settings(ws, pins),
                "--strict-mcp-config", "--no-session-persistence"]
+        if multi_turn:
+            # user turns arrive as stream-json; replay puts them in the trace
+            cmd += ["--input-format", "stream-json", "--replay-user-messages"]
         if self.policy_effort:
             cmd += ["--effort", str(self.policy_effort)]
         allowed = list(self.allowed_tools)
@@ -1289,7 +1359,8 @@ class ClaudeCodeDomain(Domain):
             binary = self._policy_bin(ctx)
         else:
             wrapper = [a.replace("{ws}", ws) for a in self.policy_wrapper]
-        cmd = self._policy_cmd(ws, pins, wrapper, binary)
+        turns = task.get("turns")
+        cmd = self._policy_cmd(ws, pins, wrapper, binary, multi_turn=bool(turns))
         env = child_env(extra, self.env_passthrough)
         if sandboxed:
             for k in _SESSION_VARS:
@@ -1297,15 +1368,20 @@ class ClaudeCodeDomain(Domain):
         with open(trial_dir / "stream.jsonl", "wb") as out, \
                 open(trial_dir / "stderr.txt", "wb") as err:
             proc = subprocess.Popen(cmd, cwd=ws, stdin=subprocess.PIPE,
-                                    stdout=out, stderr=err, env=env,
-                                    start_new_session=True)
+                                    stdout=subprocess.PIPE if turns else out,
+                                    stderr=err, env=env, start_new_session=True)
             live = ctx["procs"] if "procs" in ctx else ctx.setdefault("procs", set())
             live.add(proc)
             timed_out = False
+            pump = None
             try:
-                proc.communicate(task["prompt"].encode(), timeout=task["timeout_s"])
+                if turns:
+                    timed_out, pump = _converse(proc, turns, out, task["timeout_s"])
+                else:
+                    proc.communicate(task["prompt"].encode(), timeout=task["timeout_s"])
             except subprocess.TimeoutExpired:
                 timed_out = True
+            if timed_out:
                 # SIGTERM first: Claude Code then stops its own detached shells
                 _signal_group(proc, signal.SIGTERM)
                 try:
@@ -1320,20 +1396,28 @@ class ClaudeCodeDomain(Domain):
             _killpg(proc)   # background jobs the agent started die with it
             _sweep(token)   # ... and so do its detached (setsid) processes
             live.discard(proc)
+            if pump is not None:
+                pump.join(timeout=30)
         if tcfg is not None:
             _set_writable(tcfg, True)
             shutil.rmtree(tcfg, ignore_errors=True)
         result, limited, sids = None, None, set()
+        turns_done = 0
         for ev in render._stream_events(trial_dir):
             if ev.get("session_id"):
                 sids.add(str(ev["session_id"]))
             if ev.get("type") == "result":
                 result = ev      # the last one: background agents add more
+                turns_done += int(ev.get("num_turns") or 0)
             elif ev.get("type") == "rate_limit_event":
                 info = ev.get("rate_limit_info") or {}
                 if info.get("status") not in (None, "allowed", "allowed_warning"):
                     limited = f"rate limit {info.get('status')} " \
                               f"({info.get('rateLimitType')})"
+        if turns and result is not None:
+            # each user turn ends in its own result; usage and cost there are
+            # cumulative already, num_turns is per turn
+            result = {**result, "num_turns": turns_done}
         tail = ""
         if result is None:
             try:
@@ -1477,7 +1561,9 @@ class ClaudeCodeDomain(Domain):
         try:
             reward, weight, rc, out = self._check(
                 task_dir, ws, trial_dir,
-                {"RRSI_PRE_MANIFEST": str(manifest), "RRSI_TRIAL_TOKEN": run["token"]})
+                {"RRSI_PRE_MANIFEST": str(manifest), "RRSI_TRIAL_TOKEN": run["token"],
+                 # what the agent said, for checkers that grade replies
+                 "RRSI_STREAM": str(trial_dir / "stream.jsonl")})
             (trial_dir / "verifier.txt").write_text(out)
         except subprocess.TimeoutExpired:
             reward = 0.0

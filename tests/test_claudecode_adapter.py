@@ -676,3 +676,76 @@ def test_render_steps_messages_and_subagents():
     assert out[4] == "[step 3] SUBAGENT(u1) TOOL_RESULT: hit"
     assert out[5] == "[step 1] TOOL_RESULT: found"
     assert out[6] == "[step 4] ASSISTANT: done"
+
+
+# ------------------------------------------------------------ multi-turn --
+def _turns_repo(tmp_path, turns, extra=None):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    repo = make_repo(tmp_path)
+    t = repo / "tasks" / "chat"
+    (t / "workspace").mkdir(parents=True)
+    (t / "task.json").write_text(json.dumps({"turns": turns, "split": "evolve", **(extra or {})}))
+    (t / "check.sh").write_text("#!/usr/bin/env bash\n[ -f out.txt ] && echo 1 || echo 0\n")
+    (t / "check.sh").chmod(0o755)
+    return repo
+
+
+def test_turns_are_sent_one_by_one_in_one_session(tmp_path, monkeypatch):
+    repo = _turns_repo(tmp_path, ["first, read the code", "now write FILE: out.txt"])
+    log = tmp_path / "turns.log"
+    monkeypatch.setenv("RRSI_EVOLVE_POLICY_BIN", FAKE)
+    monkeypatch.setenv("FAKE_TURN_LOG", str(log))
+    dom = load_domain("claudecode", repo, {"task_timeout_s": 60})
+    task = dom._tasks()["chat"]
+    assert task["turns"] == ["first, read the code", "now write FILE: out.txt"]
+    assert "[user turn 2/2]" in task["prompt"]
+    cmd = dom._policy_cmd(str(tmp_path), multi_turn=True)
+    assert cmd[cmd.index("--input-format") + 1] == "stream-json" and "--replay-user-messages" in cmd
+    assert "--input-format" not in dom._policy_cmd(str(tmp_path))
+    dom.run(dom.repo, tmp_path / "runs", "job", ["chat"], 1)
+    assert [json.loads(l) for l in log.read_text().splitlines()] == task["turns"]
+    per, extra = dom.score(tmp_path / "runs", "job", ["chat"], 1)
+    assert per["chat"].rewards == [1.0]
+
+
+def test_turns_validation(tmp_path):
+    for i, bad in enumerate(([], [""], "one string", [1])):
+        repo = _turns_repo(tmp_path / f"bad{i}", bad)
+        with pytest.raises(SystemExit):
+            load_domain("claudecode", repo, {})._tasks()
+    repo = _turns_repo(tmp_path / "both", ["a"], {"prompt": "b"})
+    with pytest.raises(SystemExit):
+        load_domain("claudecode", repo, {})._tasks()
+
+
+def test_turns_stop_after_an_api_error(tmp_path, monkeypatch):
+    repo = _turns_repo(tmp_path, ["one", "two", "three"])
+    log = tmp_path / "turns.log"
+    monkeypatch.setenv("RRSI_EVOLVE_POLICY_BIN", FAKE)
+    monkeypatch.setenv("FAKE_TURN_LOG", str(log))
+    monkeypatch.setenv("FAKE_TURN_ERROR", "2")
+    dom = load_domain("claudecode", repo, {"task_timeout_s": 60})
+    dom.run(dom.repo, tmp_path / "runs", "job", ["chat"], 1)
+    assert len(log.read_text().splitlines()) == 2
+
+
+def test_turns_time_out(tmp_path, monkeypatch):
+    repo = _turns_repo(tmp_path, ["one", "two"], {"timeout_s": 2})
+    monkeypatch.setenv("RRSI_EVOLVE_POLICY_BIN", FAKE)
+    monkeypatch.setenv("FAKE_POLICY_MODE", "hang")
+    monkeypatch.setenv("FAKE_HANG_S", "60")
+    dom = load_domain("claudecode", repo, {})
+    t0 = __import__("time").monotonic()
+    dom.run(dom.repo, tmp_path / "runs", "job", ["chat"], 1)
+    assert __import__("time").monotonic() - t0 < 50
+
+
+def test_checker_gets_the_stream(tmp_path, monkeypatch):
+    repo = _turns_repo(tmp_path, ["say hi", "write FILE: out.txt"])
+    (repo / "tasks" / "chat" / "check.sh").write_text(
+        '#!/usr/bin/env bash\ngrep -q "ack 2" "$RRSI_STREAM" && echo 1 || echo 0\n')
+    monkeypatch.setenv("RRSI_EVOLVE_POLICY_BIN", FAKE)
+    dom = load_domain("claudecode", repo, {"task_timeout_s": 60})
+    dom.run(dom.repo, tmp_path / "runs", "job", ["chat"], 1)
+    per, _ = dom.score(tmp_path / "runs", "job", ["chat"], 1)
+    assert per["chat"].rewards == [1.0]

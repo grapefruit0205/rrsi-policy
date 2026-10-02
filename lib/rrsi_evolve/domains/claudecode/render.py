@@ -126,9 +126,10 @@ def render_steps(events: list, text_head=TEXT_HEAD, tool_in_head=TOOL_IN_HEAD,
                     tag = "TOOL_RESULT (error): " if block.get("is_error") \
                         else "TOOL_RESULT: "
                     lines.append(f"[step {n}] {who}{tag}{_clip(txt, tool_out_head)}")
-                elif parent and block.get("type") == "text" and block.get("text"):
+                elif block.get("type") == "text" and block.get("text"):
+                    # a subagent's task prompt, or a user turn of a multi-turn task
                     step += 1
-                    lines.append(f"[step {step}] {who}PROMPT: "
+                    lines.append(f"[step {step}] {who}{'PROMPT' if parent else 'USER'}: "
                                  f"{_clip(block['text'], text_head)}")
         # "system", "rate_limit_event" and other events are skipped
     text = "\n".join(lines)

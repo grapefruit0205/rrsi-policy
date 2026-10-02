@@ -48,7 +48,9 @@ tasks/<task_id>/
   task.json     required: {"prompt": "...", "split": "evolve"|"heldout",
                 "timeout_s": 300, "weight": 1}
                 ("prompt_file": "prompt.md" may replace "prompt";
-                split defaults to "evolve")
+                "turns": ["...", "..."] replaces it with several user
+                messages, each sent after the previous turn's answer, in
+                one session; split defaults to "evolve")
   workspace/    optional fixture, copied into each trial workspace
   setup.sh      optional, run in the workspace before the agent
   check.sh      required hidden checker, run in the workspace after the agent
@@ -97,7 +99,9 @@ in containers. Set `"sandbox": "bwrap"` to require the sandbox,
 one (firejail, a container; `{ws}` is replaced by the workspace path).
 `"policy_effort": "low"|"medium"|"high"|"xhigh"|"max"` pins the policy's
 reasoning effort (default: the model's own). Checkers also get
-`RRSI_PRE_MANIFEST`, a file listing what the workspace held before the
+`RRSI_STREAM`, the trial's stream-json transcript (to grade what the agent
+replied, not only what it wrote), and `RRSI_PRE_MANIFEST`, a file listing
+what the workspace held before the
 agent ran (`hello-file` uses it to fail stray files).
 
 Each task here has at least one strict detail that a careless run fails on:

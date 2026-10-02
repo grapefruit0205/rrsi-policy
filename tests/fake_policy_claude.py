@@ -107,7 +107,38 @@ def main() -> int:
     if "--version" in sys.argv[1:]:
         print("0.0.0 (fake policy)")
         return 0
-    prompt = sys.stdin.read()
+    argv = sys.argv[1:]
+    streaming = "--input-format" in argv and \
+        argv[argv.index("--input-format") + 1:][:1] == ["stream-json"]
+    if streaming:
+        # multi-turn: ack every user message with its own result event; the
+        # real action happens once stdin closes (after the last turn)
+        msgs = []
+        for raw in sys.stdin:
+            try:
+                m = json.loads(raw)
+            except ValueError:
+                continue
+            text = "".join(b.get("text", "") for b in m["message"]["content"]
+                           if isinstance(b, dict))
+            msgs.append(text)
+            if os.environ.get("FAKE_TURN_LOG"):
+                with open(os.environ["FAKE_TURN_LOG"], "a") as f:
+                    f.write(json.dumps(text) + "\n")
+            if "--replay-user-messages" in argv:
+                emit({"type": "user", "message": m["message"], "session_id": SESSION})
+            if os.environ.get("FAKE_TURN_ERROR") == str(len(msgs)):
+                emit({"type": "result", "subtype": "error_api", "is_error": True,
+                      "num_turns": 1, "result": "API Error: overloaded.",
+                      "session_id": SESSION})
+                continue
+            emit({"type": "result", "subtype": "success", "is_error": False,
+                  "num_turns": 1, "result": f"ack {len(msgs)}", "session_id": SESSION,
+                  "total_cost_usd": 0.001 * len(msgs),
+                  "modelUsage": {MODEL: {"inputTokens": 5 * len(msgs)}}})
+        prompt = "\n".join(msgs)
+    else:
+        prompt = sys.stdin.read()
     mode = os.environ.get("FAKE_POLICY_MODE", "solve")
     dump = os.environ.get("FAKE_ENV_DUMP")
     if dump:
