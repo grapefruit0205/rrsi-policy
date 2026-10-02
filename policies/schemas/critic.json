@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {"type": "string", "enum": ["accept", "reject", "uncertain"]},
+    "component": {
+      "type": "string",
+      "enum": ["claude_md", "skill", "agent", "command", "hook", "settings", "mcp", "memory", "other"]
+    },
+    "intent": {"type": "string", "description": "One sentence: the hypothesis this change implements."},
+    "rule": {
+      "type": "string",
+      "enum": ["none", "task_specific", "degenerate", "grader_gaming", "undeclared_bundling", "memory_leakage", "unbounded_work", "policy_tampering", "redrawn_rejection"]
+    },
+    "reasons": {"type": "array", "items": {"type": "string"}},
+    "risk_notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["verdict", "component", "intent", "rule", "reasons"]
+}

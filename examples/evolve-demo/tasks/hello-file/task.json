@@ -1,0 +1,6 @@
+{
+  "prompt": "Create a file named notes/todo.txt (create the notes directory if needed) containing exactly one line: the text BUY MILK followed by a newline. Do not create any other files.",
+  "split": "evolve",
+  "timeout_s": 300,
+  "weight": 1
+}

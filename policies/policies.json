@@ -1,0 +1,104 @@
+{
+  "_doc": "Routes are tried in order; the first match selects the policy. Path globs are fnmatch patterns ('*' crosses '/') matched against the path relative to the project, the absolute path and the basename. A tool call no route matches passes through untouched. `hook --policy NAME` on the command line skips routing.",
+  "defaults": {
+    "model": "haiku",
+    "timeout_s": 85,
+    "on_reject": "deny",
+    "on_uncertain": "ask",
+    "on_error": "ask",
+    "max_repairs": 3,
+    "max_diff_chars": 60000,
+    "max_context_chars": 6000,
+    "history_n": 8,
+    "max_pending": 3,
+    "on_budget": "ask",
+    "strict_mcp": true,
+    "setting_sources": "project",
+    "bare": false
+  },
+  "selection": {
+    "_doc": "Algorithm 2 of RRSI. S is the eval command's score (a pass rate in [0,1] is the intended scale). beta1 = 10 means +0.01 of score buys +10% tokens. w_s = 0: inside the noise band only a token saving or a new structural component keeps a bundle.",
+    "delta_z": 2.0,
+    "beta0": 0.10,
+    "beta1": 10.0,
+    "w_s": 0.0,
+    "w_c": 15.0,
+    "w_n": 0.5,
+    "n_prune": 4,
+    "w": 3
+  },
+  "ledger_path": "~/.local/state/rrsi-policy/ledger.jsonl",
+
+  "components": [
+    ["skill",     ["*/skills/*", "skills/*", "SKILL.md"]],
+    ["agent",     ["*/.claude/agents/*", ".claude/agents/*", "*/agents/*.md", "agents/*.md"]],
+    ["command",   ["*/.claude/commands/*", ".claude/commands/*", "*/commands/*.md", "commands/*.md"]],
+    ["hook",      ["hooks.json", "*/hooks/*"]],
+    ["settings",  ["settings.json", "settings.local.json", "managed-settings.json"]],
+    ["mcp",       [".mcp.json", "*.mcp.json", "mcp.json"]],
+    ["memory",    ["*/memory/*", "MEMORY.md"]],
+    ["claude_md", ["CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"]]
+  ],
+
+  "routes": [
+    {
+      "name": "protect-policy-config",
+      "tools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+      "paths": ["*/rrsi-policy/*", "*/.config/rrsi-policy/*", "*/.local/state/rrsi-policy/*"],
+      "policy": "ask-user"
+    },
+    {
+      "name": "harness-file-edit",
+      "tools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+      "paths": [
+        "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "MEMORY.md",
+        "*/.claude/*", ".claude/*",
+        "SKILL.md", "*/skills/*/*.md",
+        "*/.claude-plugin/*", "*/hooks/hooks.json",
+        ".mcp.json", "*.mcp.json"
+      ],
+      "policy": "harness-critic"
+    },
+    {
+      "name": "harness-file-via-bash",
+      "tools": ["Bash"],
+      "command_all": [
+        "(CLAUDE(\\.local)?\\.md|AGENTS\\.md|MEMORY\\.md|\\.claude/|SKILL\\.md|\\.mcp\\.json|hooks\\.json|settings(\\.local)?\\.json)",
+        "(>>?|\\btee\\b|\\bsed\\s+(-[a-zA-Z]*i|--in-place)|\\bperl\\s+-[a-zA-Z]*i|\\bmv\\b|\\bcp\\b|\\brm\\b|\\bln\\b|\\bpython3?\\s+-c|\\bcat\\s*<<)"
+      ],
+      "policy": "harness-critic"
+    },
+    {
+      "name": "secrets-in-any-write",
+      "tools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+      "paths": ["*"],
+      "policy": "secrets"
+    }
+  ],
+
+  "policies": {
+    "ask-user": {
+      "kind": "fixed",
+      "decision": "ask",
+      "message": "This edit touches the rrsi-policy engine's own code, config or ledger. Confirm only if you asked for it."
+    },
+    "secrets": {
+      "kind": "regex",
+      "decision": "deny",
+      "patterns": [
+        ["AIza[0-9A-Za-z_-]{35}", "Google API key"],
+        ["sk-(ant-)?[A-Za-z0-9_-]{20,}", "API secret key"],
+        ["gh[pousr]_[A-Za-z0-9]{36,}", "GitHub token"],
+        ["AKIA[0-9A-Z]{16}", "AWS access key id"],
+        ["-----BEGIN [A-Z ]*PRIVATE KEY-----", "private key"],
+        ["(?i)(api[_-]?key|secret|token|password)\\s*[:=]\\s*[\"'][^\"'\\s]{12,}[\"']", "credential literal"]
+      ]
+    },
+    "harness-critic": {
+      "kind": "llm",
+      "prompt": "prompts/harness-critic.txt",
+      "schema": "schemas/critic.json",
+      "precheck": "secrets"
+    }
+  }
+}

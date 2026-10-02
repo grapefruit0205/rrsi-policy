@@ -1,0 +1,6 @@
+{
+  "prompt": "In this workspace, data/sales.csv holds one header line (name,region,units) and then data rows. Write a script named filter.sh in the workspace root that prints, to stdout, every data row (header excluded) whose region column is exactly 'west', preserving the original line text and order. Make the script executable. Rows must match exactly; a region of 'westcoast' or 'northwest' does not count.",
+  "split": "evolve",
+  "timeout_s": 300,
+  "weight": 1
+}

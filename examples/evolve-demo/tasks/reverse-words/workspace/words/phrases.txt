@@ -1,0 +1,5 @@
+hello   world
+run the tests twice
+one
+multiple   spaces   between words
+trailing spaces here

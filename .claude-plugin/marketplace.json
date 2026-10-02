@@ -1,0 +1,16 @@
+{
+  "name": "rrsi-policy",
+  "owner": {
+    "name": "grapefruit0205"
+  },
+  "metadata": {
+    "description": "rrsi-policy: measure whether Claude Code harness changes actually help."
+  },
+  "plugins": [
+    {
+      "name": "rrsi-policy",
+      "source": "./",
+      "description": "Measure whether a Claude Code harness change (CLAUDE.md, skills, hooks, settings, MCP) actually helped: a runtime critic for harness edits and rrsi-evolve, an unofficial port of Google Research's RRSI harness-improvement loop."
+    }
+  ]
+}

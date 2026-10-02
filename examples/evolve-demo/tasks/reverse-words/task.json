@@ -1,0 +1,6 @@
+{
+  "prompt": "In this workspace, words/phrases.txt holds one phrase per line. Create a script named reverse.sh in the workspace root that reads that file and prints each line's words in REVERSE order to stdout (words separated by single spaces, same line order). Punctuation stays attached to its word. Whitespace within a line is collapsed to single spaces. Make the script executable.",
+  "split": "heldout",
+  "timeout_s": 300,
+  "weight": 1
+}

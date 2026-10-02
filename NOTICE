@@ -1,0 +1,13 @@
+rrsi-policy
+
+Portions of this software are adapted from google-research/rrsi
+(https://github.com/google-research/rrsi), Copyright 2026 Google LLC,
+licensed under the Apache License, Version 2.0:
+
+  - policies/prompts/harness-critic.txt   from rrsi/critic.py (reviewer rules)
+  - lib/rrsi_policy/selection.py          from rrsi/selection.py (Algorithm 2)
+  - lib/rrsi_policy/ledger.py             from rrsi/history.py (yield, prune set, stall)
+
+The adapted parts were modified for Claude Code harness files and runtime hooks.
+A copy of the Apache License 2.0 is available at
+https://www.apache.org/licenses/LICENSE-2.0

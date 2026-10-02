@@ -1,0 +1,6 @@
+{
+  "prompt": "In this workspace, stats/median.py computes the median of a list of numbers, but it is wrong for lists with an EVEN number of elements: it returns the larger of the two middle elements instead of their average. Fix stats/median.py so both even and odd lists are correct (the median of an even-length list is the mean of the two middle values). Do not change the function name or the way the program prints its result.",
+  "split": "evolve",
+  "timeout_s": 300,
+  "weight": 1
+}

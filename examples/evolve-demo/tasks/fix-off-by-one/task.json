@@ -1,0 +1,6 @@
+{
+  "prompt": "The file math/sum.py in this workspace has an off-by-one bug: buggy_sum should sum a list from index 0 to len-1 inclusive, but its loop bounds skip elements. Run it to see the wrong output, fix the bug (keep the function's name), then create a file named FIXED (in the workspace root) containing the corrected program's output for its built-in sample list, as a single line in the form sum=<number>. Do not change what the program prints to stdout.",
+  "split": "evolve",
+  "timeout_s": 300,
+  "weight": 1
+}
