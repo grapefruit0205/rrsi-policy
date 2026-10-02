@@ -73,9 +73,17 @@ def _resolve_models(cfg, domain, repo: Path, run_dir: Path, cmd: str) -> None:
     """Resolve "inherit" model knobs to the model you use, and keep a run
     directory on the policy model its frontier was measured with: scores from
     two models are not comparable, so a later run on another model stops."""
+    roles = {}
     for f in ("proposer_model", "analyst_model", "critic_model"):
         if models.is_inherit(getattr(cfg, f)):
-            setattr(cfg, f, models.resolve(None, cwd=repo)[0])
+            m, src = models.resolve(None, cwd=repo)
+            setattr(cfg, f, m)
+            roles[f] = f"{m} (from {src})"
+        else:
+            roles[f] = f"{getattr(cfg, f)} (from config)"
+    if cmd in ("round", "run"):
+        print("[rrsi] search roles: " + ", ".join(f"{k.split('_')[0]}={v}"
+                                                  for k, v in roles.items()), file=sys.stderr)
     pm = getattr(domain, "policy_model", None)
     if pm is None or cmd not in EVAL_CMDS:
         return
@@ -87,7 +95,12 @@ def _resolve_models(cfg, domain, repo: Path, run_dir: Path, cmd: str) -> None:
             pinned = json.loads(pin.read_text()).get("policy_model")
         except (OSError, ValueError, AttributeError):
             pinned = None
-        if pinned and pinned != pm:
+        if not isinstance(pinned, str) or not pinned:
+            sys.exit(f"rrsi-evolve: {pin} is unreadable, so this run directory's policy "
+                     f"model is unknown. Restore it (e.g. {{\"policy_model\": \"{pm}\"}} if "
+                     f"that is the model the frontier was measured on) or start a new --runs "
+                     f"directory.")
+        if not models.same_model(pinned, pm):
             sys.exit(f"rrsi-evolve: this run directory was measured on {pinned!r}, but the "
                      f"policy model now resolves to {pm!r} (from {src}). Scores from two "
                      f"models are not comparable. Set \"policy_model\": \"{pinned}\" in "
@@ -185,7 +198,7 @@ def main():
         name = raw.get("domain", "claudecode")
     cfg = RRSIConfig.load(config, **{k: getattr(args, k) for k in OVERRIDES})
     runs_root = (Path(args.runs) if args.runs else repo / ".rrsi" / "runs").resolve()
-    llm.configure(env_passthrough=raw.get("env_passthrough", []))
+    llm.configure(env_passthrough=raw.get("env_passthrough", []), cwd=repo)
 
     domain = load_domain(name, repo, raw)
     _resolve_models(cfg, domain, repo, runs_root / name, args.cmd)

@@ -1502,18 +1502,19 @@ class ClaudeCodeDomain(Domain):
         """Models a session used that are neither the policy's (its tier, as
         the alias resolves: ANTHROPIC_DEFAULT_<TIER>_MODEL, ANTHROPIC_MODEL)
         nor Claude Code's small background model (a haiku), nor a fallback
-        Claude Code itself switched to. Unknown when the policy model names
-        no model family (a gateway's own name)."""
+        Claude Code itself switched to. When the policy model names no model
+        family (a gateway's own name), only that exact name, the env-pinned
+        names and a haiku helper are the policy's."""
         mu = (result_ev or {}).get("modelUsage") or {}
         pm = str(self.policy_model).lower()
         fams = {f for f in ("haiku", "sonnet", "opus", "fable") if f in pm}
         if "opusplan" in pm:
             fams = {"opus", "sonnet"}       # Sonnet outside plan mode
-        if not fams or not isinstance(mu, dict):
+        if not isinstance(mu, dict):
             return []
         fams.add("haiku")
         env = os.environ
-        exact = {pm, *(str(env.get(v) or "").lower() for v in (
+        exact = {pm, models.canonical(pm), *(str(env.get(v) or "").lower() for v in (
             "ANTHROPIC_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
             *(f"ANTHROPIC_DEFAULT_{f.upper()}_MODEL" for f in fams)))} - {""}
         for ev in events:

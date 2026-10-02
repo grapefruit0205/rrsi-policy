@@ -1,0 +1,1 @@
+--- does smoke write pin? smoke is in EVAL_CMDS: yes. What about ? not eval. OK. Check: : not in EVAL_CMDS - pin read. But prints frontier: fine.

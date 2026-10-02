@@ -291,12 +291,14 @@ transport, the endpoint of the b_t schedule).
   (rrsi-policy) default to `"inherit"`: the session's own model (critic
   only), else `RRSI_MODEL`, `ANTHROPIC_MODEL`, the project's
   `.claude/settings.local.json` / `.claude/settings.json`, then
-  `~/.claude/settings.json` (`$CLAUDE_CONFIG_DIR`); with none set, `opus`.
-  Each evaluating command prints the model and where it came from. A run
-  directory remembers the policy model of its first evaluation
-  (`.rrsi/runs/<domain>/policy_model.json`) and stops if the model later
-  resolves to something else, because scores from two models are not
-  comparable: pin `"policy_model"` to the recorded one to continue, or start
+  `~/.claude/settings.json` (`$CLAUDE_CONFIG_DIR`); with none set (or
+  `"default"`, the account default we cannot see), `opus`. Evaluating
+  commands print the policy model and where it came from, `round` and `run`
+  also the search roles' models, and the critic records its model and source
+  in each ledger entry. A run directory remembers the policy model of its
+  first evaluation (`.rrsi/runs/<domain>/policy_model.json`) and stops if the
+  model later resolves to a different one (`opus[1m]` and `claude-opus-5-5`
+  count as the same), because scores from two models are not comparable: pin `"policy_model"` to the recorded one to continue, or start
   a new `--runs` directory. Set a name (`haiku`, `sonnet`, `opus`, a full id)
   to choose a cheaper model on purpose.
 - Trials of one job run in parallel (`concurrency`), and so can several

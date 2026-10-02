@@ -283,13 +283,14 @@ def evaluate(cfg: dict, policy_name: str, call: ToolCall, route_name: str,
     schema = json.loads(resolve_asset(cfg, pol["schema"]).read_text())
     model = model or os.environ.get("RRSI_POLICY_MODEL") or pol.get("model") or d.get("model")
     # "inherit" (the default): judge with the model the session itself runs on
-    model, _src = models.resolve(model, call.cwd, call.transcript_path)
+    model, model_src = models.resolve(model, call.cwd, call.transcript_path)
     payload = build_payload(cfg, call, route_name, hint, led)
     out, meta = call_claude(system, payload, schema, model, cfg)
     verdict = out["verdict"]
     dec = Decision("pass", policy_name, verdict, out.get("reasons") or [],
                    component=out.get("component") or hint, intent=out.get("intent"),
-                   rule=out.get("rule"), meta={**meta, "risk_notes": out.get("risk_notes")})
+                   rule=out.get("rule"), meta={**meta, "model_source": model_src,
+                                                  "risk_notes": out.get("risk_notes")})
     if verdict == "reject":
         dec.decision = pol.get("on_reject", d["on_reject"])
         repairs = led.consecutive_denies(call.project, call.session_id, call.target)

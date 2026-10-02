@@ -47,8 +47,7 @@ _JSON_SUFFIX = ("\n\nOutput ONLY a single valid JSON object. No prose before or 
                 "after, no markdown fences.")
 
 # Model aliases for the anthropic backend (claude-cli resolves them itself).
-ALIASES = {"opus": "claude-opus-5-5", "sonnet": "claude-sonnet-5-5",
-           "haiku": "claude-haiku-4-5-20251001"}
+ALIASES = models.ALIASES
 
 # Written to the temp system-prompt file when the caller passes no system.
 _FALLBACK_SYSTEM = "You are a careful assistant."
@@ -61,14 +60,17 @@ _timeout_s: int = 900
 _env_passthrough: tuple = ()
 _fake_mod = None
 _fake_path: str | None = None
+_cwd: str | None = None             # where "inherit" is resolved (the repo)
 
 
 def configure(backend: str | None = None, timeout_s: int | None = None,
-              env_passthrough=None) -> None:
+              env_passthrough=None, cwd=None) -> None:
     """Set the backend, its timeout and the extra environment variables the
     claude-cli child keeps (procenv.child_env); the env var RRSI_EVOLVE_LLM
     still overrides the backend at call time. Cheap; idempotent."""
-    global _backend, _timeout_s, _env_passthrough
+    global _backend, _timeout_s, _env_passthrough, _cwd
+    if cwd is not None:
+        _cwd = str(cwd)
     if backend is not None:
         _backend = backend
     if timeout_s is not None:
@@ -203,7 +205,7 @@ def generate(prompt: str, system: str | None = None, max_retries: int = 6,
              max_tokens: int = MAX_TOKENS, cache_prefix: str | None = None) -> str:
     mdl = model or MODEL
     if models.is_inherit(mdl):
-        mdl = models.resolve(mdl)[0]
+        mdl = models.resolve(mdl, cwd=_cwd)[0]
     sys_prompt = (system or "") + (_JSON_SUFFIX if json_only else "")
     backend = _current_backend()
     if backend != "claude-cli" and backend != "anthropic" \

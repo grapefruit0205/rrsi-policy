@@ -53,7 +53,30 @@ def test_order_session_env_project_user(clean, tmp_path, monkeypatch):
     ]) + "\n")
     assert models.resolve("inherit", cwd=proj, transcript=tr) == ("claude-opus-5-5", "session")
     monkeypatch.setenv("RRSI_MODEL", "pinned")
-    assert models.resolve("inherit", cwd=proj, transcript=tr) == ("pinned", "RRSI_MODEL")
+    # the live session beats RRSI_MODEL; RRSI_MODEL beats everything else
+    assert models.resolve("inherit", cwd=proj, transcript=tr) == ("claude-opus-5-5", "session")
+    assert models.resolve("inherit", cwd=proj) == ("pinned", "RRSI_MODEL")
+
+
+def test_transcript_tail_and_default_setting(clean, tmp_path, monkeypatch):
+    tr = tmp_path / "t.jsonl"
+    big = json.dumps({"type": "user", "message": {"content": "x" * 300_000}})
+    with open(tr, "w") as f:
+        f.write(json.dumps({"type": "assistant", "message": {"model": "old"}}) + "\n")
+        f.write(big + "\n")
+        f.write(json.dumps({"type": "assistant", "message": {"model": "new", "content": "y" * 700_000}}) + "\n")
+        f.write(big + "\n")
+    assert models.session_model(tr) == "new"
+    monkeypatch.setattr(models, "_TAIL_BYTES", 400_000)       # newest turn cut off
+    assert models.session_model(tr) is None or models.session_model(tr) == "old"
+    _settings(clean, "default")
+    assert models.resolve(None, cwd=tmp_path)[0] == models.FALLBACK
+
+
+def test_same_model():
+    assert models.same_model("opus[1m]", "claude-opus-5-5")
+    assert models.same_model("OPUS", "claude-opus-5-5[1m]")
+    assert not models.same_model("opus", "sonnet")
 
 
 def test_claude_config_dir_and_bad_files(clean, tmp_path, monkeypatch):
@@ -89,6 +112,43 @@ def test_adapter_and_cli_pin(clean, tmp_path, monkeypatch):
     cli._resolve_models(RRSIConfig(), dom2, repo, run_dir, "status")      # reads nothing new
     dom3 = load_domain("claudecode", repo, {"policy_model": "opus[1m]"})
     cli._resolve_models(RRSIConfig(), dom3, repo, run_dir, "round")       # explicit pin continues
+    dom4 = load_domain("claudecode", repo, {"policy_model": "claude-opus-5-5"})
+    cli._resolve_models(RRSIConfig(), dom4, repo, run_dir, "round")       # same model, other name
+    (run_dir / "policy_model.json").write_text("{broken")
+    with pytest.raises(SystemExit) as e:
+        cli._resolve_models(RRSIConfig(), dom3, repo, run_dir, "round")
+    assert "unreadable" in str(e.value)
+
+
+def test_roles_resolve_against_the_repo(clean, tmp_path, monkeypatch):
+    from rrsi_evolve import llm
+    repo, other = tmp_path / "repo", tmp_path / "elsewhere"
+    _settings(repo, "opus")
+    _settings(other, "sonnet")
+    monkeypatch.chdir(other)
+    seen = {}
+
+    def fake(prompt, sys_prompt, mdl, max_tokens, cache_prefix, json_only):
+        seen["m"] = mdl
+        return "{}", 0.0
+    monkeypatch.setattr(llm, "_call_fake", fake)
+    monkeypatch.setattr(llm, "_cwd", None)
+    monkeypatch.setenv("RRSI_EVOLVE_LLM", "fake:/nonexistent.py")
+    llm.configure(cwd=repo)
+    llm.generate("hi")
+    assert seen["m"] == "opus"
+
+
+def test_gateway_policy_model_is_still_policed(clean, tmp_path):
+    from rrsi_evolve.domain import load_domain
+    repo = tmp_path / "repo"
+    (repo / "tasks").mkdir(parents=True)
+    dom = load_domain("claudecode", repo, {"policy_model": "zz-gateway/big"})
+    mu = {"modelUsage": {"zz-gateway/big": {}, "claude-haiku-4-5": {}}}
+    assert dom._foreign_models(mu) == []
+    assert dom._foreign_models({"modelUsage": {"claude-sonnet-5-5": {}}}) == ["claude-sonnet-5-5"]
+    dom.policy_model = "opus[1m]"
+    assert dom._foreign_models({"modelUsage": {"claude-opus-5-5[1m]": {}, "claude-opus-5-5": {}}}) == []
 
 
 def test_runtime_critic_uses_session_model(clean, tmp_path, monkeypatch):

@@ -242,9 +242,11 @@ driver, CLI는 목록으로 정리된 작은 변경만 있습니다(경로를 �
   `analyst_model`, `critic_model`과 rrsi-policy critic의 `"model"`은 기본값이 `"inherit"`입니다.
   세션 자신의 모델(critic만), 없으면 `RRSI_MODEL`, `ANTHROPIC_MODEL`, 프로젝트의
   `.claude/settings.local.json`·`.claude/settings.json`, `~/.claude/settings.json`
-  (`$CLAUDE_CONFIG_DIR`) 순서로 찾고, 아무것도 없으면 `opus`입니다. 평가하는 명령은 어떤 모델을 어디서
-  읽었는지 출력합니다. 실행 디렉터리는 처음 평가한 정책 모델을 기억하고
-  (`.rrsi/runs/<domain>/policy_model.json`), 나중에 모델이 다르게 잡히면 멈춥니다. 두 모델의 점수는
+  (`$CLAUDE_CONFIG_DIR`) 순서로 찾고, 아무것도 없으면(또는 볼 수 없는 계정 기본값인 `"default"`면)
+  `opus`입니다. 평가하는 명령은 정책 모델과 그 출처를, `round`·`run`은 탐색 역할의 모델도 출력하고,
+  critic은 판정마다 모델과 출처를 ledger에 남깁니다. 실행 디렉터리는 처음 평가한 정책 모델을 기억하고
+  (`.rrsi/runs/<domain>/policy_model.json`), 나중에 다른 모델로 잡히면 멈춥니다(`opus[1m]`과
+  `claude-opus-5-5`는 같은 모델로 봅니다). 두 모델의 점수는
   비교할 수 없기 때문입니다. 계속하려면 `"policy_model"`을 기록된 값으로 고정하고, 새 모델로 다시
   시작하려면 `--runs`로 새 디렉터리를 쓰세요. 일부러 싼 모델을 쓰려면 이름(`haiku`, `sonnet`,
   `opus`, 전체 id)을 적으면 됩니다.
