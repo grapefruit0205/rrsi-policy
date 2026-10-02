@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 
+from . import scope as scopes
 from .llm import generate
 
 GENERIC_PATTERNS = [
@@ -86,14 +87,14 @@ def precheck(diff: str, domain_patterns: list) -> list[str]:
 
 def review(domain, diff: str, summary: str, targets_mode: str,
            edits: list | None = None, state_files: str = "",
-           model: str | None = None) -> dict:
+           model: str | None = None, scope: str = "general") -> dict:
     hard = precheck(diff, domain.critic_patterns)
     if hard:
         return {"verdict": "reject", "reasons": [f"precheck: {h}" for h in hard],
                 "risk_notes": []}
     if not diff.strip():
         return {"verdict": "reject", "reasons": ["empty diff"], "risk_notes": []}
-    system = SYSTEM_TMPL.format(domain_brief=domain.briefs["critic"])
+    system = scopes.critic(SYSTEM_TMPL.format(domain_brief=domain.briefs["critic"]), scope)
     payload = (
         f"CANDIDATE SUMMARY: {summary}\nTARGETS: {targets_mode}\n\n"
         f"=== DECLARED EDITS (independent changes in this candidate) ===\n"

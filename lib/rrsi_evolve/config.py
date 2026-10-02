@@ -26,6 +26,8 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from . import scope
+
 
 @dataclass
 class RRSIConfig:
@@ -60,6 +62,9 @@ class RRSIConfig:
     llm_backend: str = "claude-cli"
     llm_timeout_s: int = 900
     b_anneal_endpoint: bool = False
+    # "general": the harness must help in unfamiliar repositories; "repo": it
+    # serves one repository, so that repository's conventions are fair game
+    harness_scope: str = "general"
     notes: dict = field(default_factory=dict)
 
     @classmethod
@@ -69,7 +74,9 @@ class RRSIConfig:
         kw = {k: v for k, v in raw.items() if k in known}
         kw["notes"] = {k: v for k, v in raw.items() if k not in known}
         kw.update({k: v for k, v in overrides.items() if v is not None})
-        return cls(**kw)
+        cfg = cls(**kw)
+        scope.check(cfg.harness_scope)
+        return cfg
 
     def dump(self) -> dict:
         return asdict(self)

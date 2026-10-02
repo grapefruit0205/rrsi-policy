@@ -301,6 +301,16 @@ transport, the endpoint of the b_t schedule).
   process that cleared its environment escapes the token), and the run
   prints a warning. `policy_wrapper` takes any other sandbox (firejail, a
   container); `sandbox: "bwrap"` makes the sandbox required.
+- <a id="harness-scope"></a>**Harness scope.** By default (`harness_scope:
+  "general"`) the proposer and the critic treat anything specific to the
+  suite's repository as overfitting: the harness should help in repositories
+  it has never seen. That also keeps it from learning a team's own rules
+  (a generated file nobody edits, the required report headings), which no
+  general procedure can recover. Set `"harness_scope": "repo"` when the
+  harness will be installed in ONE repository and the tasks (held-out ones
+  included) come from it: repository-wide conventions may then be written
+  down (usually a "Team conventions" section in CLAUDE.md), while task ids,
+  ticket numbers and per-task values are still rejected.
 - <a id="which-model"></a>**Which model.** `policy_model`, `proposer_model`,
   `analyst_model`, `critic_model` (rrsi-evolve) and the critic's `"model"`
   (rrsi-policy) default to `"inherit"`: the session's own model (critic

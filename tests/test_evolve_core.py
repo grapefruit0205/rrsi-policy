@@ -317,3 +317,48 @@ def test_evaluate_reruns_missing_trials_once(tmp_path):
     d = Flaky(fail_runs=0)              # nothing missing: one run
     evaluate(d, tmp_path, tmp_path, "j", ["t"], 3)
     assert d.runs == 1
+
+
+# ------------------------------------------------------------ harness scope --
+def test_harness_scope_config_and_amendments(tmp_path):
+    from rrsi_evolve import critic, scope
+    p = tmp_path / "rrsi.json"
+    p.write_text(json.dumps({"harness_scope": "repo"}))
+    assert RRSIConfig.load(p).harness_scope == "repo"
+    p.write_text(json.dumps({}))
+    assert RRSIConfig.load(p).harness_scope == "general"
+    p.write_text(json.dumps({"harness_scope": "team"}))
+    try:
+        RRSIConfig.load(p)
+    except ValueError as e:
+        assert "harness_scope" in str(e)
+    else:
+        raise AssertionError("unknown scope accepted")
+    # general leaves the constitution and the critic as they are
+    assert scope.skill("SKILL", "general") == "SKILL"
+    assert scope.critic("SYS", "general") == "SYS"
+    # repo amends both, and still bans task-specific answers
+    s = scope.skill("SKILL", "repo")
+    assert s.startswith("SKILL") and "Harness scope: repo" in s and "ticket numbers" in s
+    c = scope.critic("SYS", "repo")
+    assert c.startswith("SYS") and "HARNESS SCOPE: repo" in c and "Still REJECT" in c
+
+
+def test_critic_review_passes_scope_to_the_reviewer(monkeypatch):
+    from rrsi_evolve import critic
+
+    class D:
+        critic_patterns = []
+        briefs = {"critic": "brief"}
+
+    seen = []
+
+    def fake_generate(payload, system=None, **kw):
+        seen.append(system)
+        return json.dumps({"verdict": "accept", "reasons": [], "risk_notes": []})
+
+    monkeypatch.setattr(critic, "generate", fake_generate)
+    critic.review(D(), "+ a line\n", "m", "mode")
+    critic.review(D(), "+ a line\n", "m", "mode", scope="repo")
+    assert "HARNESS SCOPE: repo" not in seen[0]
+    assert "HARNESS SCOPE: repo" in seen[1]

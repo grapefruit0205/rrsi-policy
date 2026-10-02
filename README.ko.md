@@ -251,6 +251,12 @@ driver, CLI는 목록으로 정리된 작은 변경만 있습니다(경로를 �
   그래도 찾으려고 하면 checker를 찾을 수 있어서(프로세스 조상을 따라가면 저장소가 나오고, 환경을
   비운 프로세스는 토큰 검사를 피합니다) 실행 시 경고를 출력합니다. 다른 샌드박스(firejail,
   컨테이너)는 `policy_wrapper`로 지정하고, `sandbox: "bwrap"`으로 두면 샌드박스가 필수가 됩니다.
+- <a id="하네스-범위"></a>**하네스 범위.** 기본값(`harness_scope: "general"`)에서는 제안자와 critic이
+  과제 저장소에만 해당하는 내용을 모두 과적합으로 봅니다. 처음 보는 저장소에서도 도움이 되어야 하기
+  때문입니다. 그래서 팀만의 규칙(아무도 손대지 않는 생성 파일, 정해진 보고 제목 같은 것)도 배우지
+  못합니다. 이런 규칙은 일반 절차로는 알아낼 수 없습니다. 하네스를 저장소 하나에만 설치하고 과제(heldout
+  포함)도 그 저장소에서 나온다면 `"harness_scope": "repo"`로 두세요. 그러면 저장소 전체의 관례는 적을 수
+  있고(보통 CLAUDE.md의 "Team conventions" 절), 과제 id·티켓 번호·과제별 값은 여전히 거부됩니다.
 - <a id="어떤-모델을-쓰나"></a>**어떤 모델을 쓰나.** rrsi-evolve의 `policy_model`, `proposer_model`,
   `analyst_model`, `critic_model`과 rrsi-policy critic의 `"model"`은 기본값이 `"inherit"`입니다.
   세션 자신의 모델(critic만), 없으면 `RRSI_MODEL`, `ANTHROPIC_MODEL`, 프로젝트의

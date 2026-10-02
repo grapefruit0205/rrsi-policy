@@ -29,6 +29,7 @@ from pathlib import Path
 
 from . import gitops as G
 from . import llm
+from . import scope
 from .analyst import analyze, load_digests
 from .calibrate import calibrate as _calibrate, write as _write_cal
 from .components import normalize
@@ -260,6 +261,7 @@ class Run:
         hist_rows = self.history.render()
         digests = load_digests(rdir)
         skill_md, patterns_md = d.constitution(self.repo)
+        skill_md = scope.skill(skill_md, cfg.harness_scope)
         log(d.name, f"b_t={budget} sigma_t={sigma} untried={explore['untried']} "
             f"prune={[p['component'] for p in prune]}")
         (rdir / "directives.json").write_text(json.dumps(
@@ -483,7 +485,7 @@ class Run:
             (vdir / "diff.patch").write_text(diff)
             verdict = review(d, diff, prop.get("mechanism") or "",
                              prop.get("targets_mode") or "", edits=prop.get("edits"),
-                             model=cfg.critic_model)
+                             model=cfg.critic_model, scope=cfg.harness_scope)
             if verdict.get("verdict") == "accept":
                 # tag validation (l' must be evidenced by d'): a declared structural
                 # component with nothing in the diff is re-tagged from the diff, and
