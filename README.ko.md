@@ -27,8 +27,12 @@ CLAUDE.md, 스킬, 훅을 고쳐도 실제로 나아졌는지 알기 어렵습�
 **아직은 아닙니다:** 하네스를 가끔만 고치는 경우. macOS에서는 샌드박스 없이 돌아 점수를 속이기
 쉽습니다. Windows는 그대로는 동작하지 않으니 WSL2를 쓰세요.
 
-**비용:** haiku 기준으로 데모의 baseline(trial 8개)이 $0.17, 한 라운드가 $1.74였습니다. 더 센
-모델은 몇 배 듭니다([비용 경고](examples/evolve-demo/README.md#cost-warning)).
+**모델:** 모든 모델 설정의 기본값은 `inherit`, 즉 지금 쓰시는 모델입니다. 측정과 판정은 그 측정을
+돌린 모델에 대해서만 의미가 있어서, trial·탐색 역할·critic 모두 기본으로 그 모델로 돕니다
+([어떤 모델을 쓰나](#어떤-모델을-쓰나)).
+
+**비용:** haiku 기준으로 데모의 baseline(trial 8개)이 $0.17, 한 라운드가 $1.74였습니다. 쓰시는
+모델(대부분 opus)로 돌리면 몇 배 듭니다([비용 경고](examples/evolve-demo/README.md#cost-warning)).
 
 ---
 
@@ -50,8 +54,8 @@ RRSI와 같은 부분과 다른 부분은 [RRSI와의 관계](#rrsi와의-관계
 
 - **강제됩니다.** skill이나 CLAUDE.md에 적은 규칙은 모델이 무시할 수 있습니다. PreToolUse hook은
   편집이 디스크에 닿기 전에 실행되므로 건너뛸 수 없습니다.
-- **critic이 독립적입니다.** 편집한 에이전트와 별개의 프로세스, 새 컨텍스트에서 돕니다. 모델도 따로
-  고를 수 있습니다. 그래서 편집한 쪽의 자기 합리화를 보지 않고 diff만 보고 판단합니다. 출력은
+- **critic이 독립적입니다.** 편집한 에이전트와 별개의 프로세스, 새 컨텍스트에서 돕니다. 모델은
+  기본으로 세션이 쓰는 모델을 세션 기록에서 읽어 씁니다(정책 설정의 `"model"`로 고정 가능). 그래서 편집한 쪽의 자기 합리화를 보지 않고 diff만 보고 판단합니다. 출력은
   `--json-schema`로 형식이 강제됩니다.
 - **정책 선택은 LLM이 하지 않습니다.** 정책은 argv, 도구 이름, 경로, 명령 정규식으로 결정론적으로
   고릅니다. diff 안의 텍스트가 느슨한 정책을 고르게 만들 수 없습니다.
@@ -234,6 +238,16 @@ driver, CLI는 목록으로 정리된 작은 변경만 있습니다(경로를 �
   그래도 찾으려고 하면 checker를 찾을 수 있어서(프로세스 조상을 따라가면 저장소가 나오고, 환경을
   비운 프로세스는 토큰 검사를 피합니다) 실행 시 경고를 출력합니다. 다른 샌드박스(firejail,
   컨테이너)는 `policy_wrapper`로 지정하고, `sandbox: "bwrap"`으로 두면 샌드박스가 필수가 됩니다.
+- <a id="어떤-모델을-쓰나"></a>**어떤 모델을 쓰나.** rrsi-evolve의 `policy_model`, `proposer_model`,
+  `analyst_model`, `critic_model`과 rrsi-policy critic의 `"model"`은 기본값이 `"inherit"`입니다.
+  세션 자신의 모델(critic만), 없으면 `RRSI_MODEL`, `ANTHROPIC_MODEL`, 프로젝트의
+  `.claude/settings.local.json`·`.claude/settings.json`, `~/.claude/settings.json`
+  (`$CLAUDE_CONFIG_DIR`) 순서로 찾고, 아무것도 없으면 `opus`입니다. 평가하는 명령은 어떤 모델을 어디서
+  읽었는지 출력합니다. 실행 디렉터리는 처음 평가한 정책 모델을 기억하고
+  (`.rrsi/runs/<domain>/policy_model.json`), 나중에 모델이 다르게 잡히면 멈춥니다. 두 모델의 점수는
+  비교할 수 없기 때문입니다. 계속하려면 `"policy_model"`을 기록된 값으로 고정하고, 새 모델로 다시
+  시작하려면 `--runs`로 새 디렉터리를 쓰세요. 일부러 싼 모델을 쓰려면 이름(`haiku`, `sonnet`,
+  `opus`, 전체 id)을 적으면 됩니다.
 - 한 job의 trial은 병렬로 돌고(`concurrency`), 여러 job도 동시에 돌 수 있습니다(`eval_parallel`).
   실행마다 별도의 전용 디렉터리, 프록시, 설정 디렉터리를 쓰고, job별 상태는 trial이 끝날 때마다
   저장합니다.

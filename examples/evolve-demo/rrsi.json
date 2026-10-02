@@ -1,9 +1,9 @@
 {
-  "_doc": "evolve-demo: a tiny claudecode-domain suite (4 evolve tasks + 1 heldout task). Each evaluation = 4 evolve tasks x k=2 = 8 headless Claude Code sessions on the frozen policy (haiku); each round draws m=2 candidates, drafts each in its own git worktree, screens them with a leakage critic, evaluates the survivors and keeps the best admissible one (Algorithm 1 + Algorithm 2 of google-research/rrsi). delta=0.125 = one trial of the 8 per evaluation (RRSI's coding config fixes delta the same way, as passes: 3 of 178). With k=2 and agreeing trials the bootstrap estimate (delta=null) is 0, which would admit a single lucky trial; set delta=null only with k>=3 or several base evaluations (`rrsi-evolve calibrate --jobs base,base2`). Model aliases: haiku/sonnet/opus.",
+  "_doc": "evolve-demo: a tiny claudecode-domain suite (4 evolve tasks + 1 heldout task). Each evaluation = 4 evolve tasks x k=2 = 8 headless Claude Code sessions on the frozen policy (\"inherit\": the model you use, pinned per run directory); each round draws m=2 candidates, drafts each in its own git worktree, screens them with a leakage critic, evaluates the survivors and keeps the best admissible one (Algorithm 1 + Algorithm 2 of google-research/rrsi). delta=0.125 = one trial of the 8 per evaluation (RRSI's coding config fixes delta the same way, as passes: 3 of 178). With k=2 and agreeing trials the bootstrap estimate (delta=null) is 0, which would admit a single lucky trial; set delta=null only with k>=3 or several base evaluations (`rrsi-evolve calibrate --jobs base,base2`). Model names: inherit (default), haiku/sonnet/opus or a full id; the costs quoted in the README were measured with haiku everywhere.",
   "domain": "claudecode",
   "harness_path": "harness",
   "tasks_dir": "tasks",
-  "policy_model": "haiku",
+  "policy_model": "inherit",
   "permission_mode": "acceptEdits",
   "allowed_tools": [
     "Read",
@@ -34,7 +34,7 @@
   "n_fail_traces": 6,
   "n_success_traces": 3,
   "eval_parallel": 1,
-  "proposer_model": "sonnet",
-  "analyst_model": "sonnet",
-  "critic_model": "sonnet"
+  "proposer_model": "inherit",
+  "analyst_model": "inherit",
+  "critic_model": "inherit"
 }

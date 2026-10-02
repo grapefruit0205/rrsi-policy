@@ -38,8 +38,10 @@ import tempfile
 import time
 
 from . import procenv
+from rrsi_policy import models
 
-MODEL = os.environ.get("RRSI_SEARCH_MODEL", "opus")
+# "inherit": the model you use (rrsi_policy.models.resolve)
+MODEL = os.environ.get("RRSI_SEARCH_MODEL", "inherit")
 MAX_TOKENS = 20_000
 _JSON_SUFFIX = ("\n\nOutput ONLY a single valid JSON object. No prose before or "
                 "after, no markdown fences.")
@@ -160,7 +162,8 @@ def _call_anthropic(prompt: str, sys_prompt: str, mdl: str, max_tokens: int,
     content = ([{"type": "text", "text": cache_prefix,
                  "cache_control": {"type": "ephemeral"}},
                 {"type": "text", "text": prompt}] if cache_prefix else prompt)
-    kwargs = {"model": ALIASES.get(mdl, mdl), "max_tokens": max_tokens,
+    base = re.sub(r"\[[^\]]*\]$", "", mdl)      # opus[1m] -> opus
+    kwargs = {"model": ALIASES.get(base, base), "max_tokens": max_tokens,
               "messages": [{"role": "user", "content": content}]}
     if sys_prompt:
         kwargs["system"] = sys_prompt
@@ -199,6 +202,8 @@ def generate(prompt: str, system: str | None = None, max_retries: int = 6,
              json_only: bool = False, model: str | None = None,
              max_tokens: int = MAX_TOKENS, cache_prefix: str | None = None) -> str:
     mdl = model or MODEL
+    if models.is_inherit(mdl):
+        mdl = models.resolve(mdl)[0]
     sys_prompt = (system or "") + (_JSON_SUFFIX if json_only else "")
     backend = _current_backend()
     if backend != "claude-cli" and backend != "anthropic" \

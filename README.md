@@ -32,9 +32,14 @@ Linux.
 without the sandbox, so scores are easier to game. Native Windows does not
 work; use WSL2.
 
+**Models:** every model setting defaults to `inherit`, the model you use.
+Measurements and verdicts are only about the model they ran on, so by default
+trials, search roles and the critic all run on it (see
+[Which model](#which-model)).
+
 **Cost:** measured on haiku, the demo's baseline (8 trials) was $0.17 and one
-round $1.74. Stronger models cost several times more
-([cost warning](examples/evolve-demo/README.md#cost-warning)).
+round $1.74. On your own model (opus, for most people) expect several times
+more ([cost warning](examples/evolve-demo/README.md#cost-warning)).
 
 ---
 
@@ -61,8 +66,9 @@ Requires Python 3.10+ (standard library only) and the `claude` CLI.
   can ignore. A PreToolUse hook runs before the edit reaches the disk, so it
   cannot be skipped.
 - **The critic is independent.** It runs in its own process with a fresh
-  context and its own model choice. It sees only the diff, not the editing
-  agent's reasoning. Its output is constrained by `--json-schema`.
+  context. By default it judges with the model the session runs on (read
+  from the session transcript; set `"model"` in the policy config to pin
+  one). It sees only the diff, not the editing agent's reasoning. Its output is constrained by `--json-schema`.
 - **The LLM does not pick the policy.** The policy is selected deterministically
   from argv, the tool name, path globs or command regexes, so text inside a diff
   cannot route itself to a lenient policy.
@@ -280,6 +286,19 @@ transport, the endpoint of the b_t schedule).
   process that cleared its environment escapes the token), and the run
   prints a warning. `policy_wrapper` takes any other sandbox (firejail, a
   container); `sandbox: "bwrap"` makes the sandbox required.
+- <a id="which-model"></a>**Which model.** `policy_model`, `proposer_model`,
+  `analyst_model`, `critic_model` (rrsi-evolve) and the critic's `"model"`
+  (rrsi-policy) default to `"inherit"`: the session's own model (critic
+  only), else `RRSI_MODEL`, `ANTHROPIC_MODEL`, the project's
+  `.claude/settings.local.json` / `.claude/settings.json`, then
+  `~/.claude/settings.json` (`$CLAUDE_CONFIG_DIR`); with none set, `opus`.
+  Each evaluating command prints the model and where it came from. A run
+  directory remembers the policy model of its first evaluation
+  (`.rrsi/runs/<domain>/policy_model.json`) and stops if the model later
+  resolves to something else, because scores from two models are not
+  comparable: pin `"policy_model"` to the recorded one to continue, or start
+  a new `--runs` directory. Set a name (`haiku`, `sonnet`, `opus`, a full id)
+  to choose a cheaper model on purpose.
 - Trials of one job run in parallel (`concurrency`), and so can several
   jobs (`eval_parallel`); each run has its own private dir, proxy and
   config dir, and the per-job state is saved after every trial.

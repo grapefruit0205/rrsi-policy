@@ -151,8 +151,11 @@ rrsi-evolve heldout --label champ # evaluate the incumbent on the heldout task
 Useful options: `--repo <path>` and `--config <path>` point at another
 repository or config; `--runs <dir>` relocates the state directory; any
 hyperparameter in `rrsi.json` (`--T`, `--k`, `--m`, `--delta`, ...) can be
-overridden on the command line. Model names are the aliases the LLM layer
-understands: `haiku`, `sonnet`, `opus`.
+overridden on the command line. Every model setting is `"inherit"` here: the
+model you use (`RRSI_MODEL`, `ANTHROPIC_MODEL`, then the `"model"` of your
+Claude Code settings), printed by each evaluating command and pinned to the
+run directory after the first evaluation. Put `haiku`, `sonnet`, `opus` or a
+full model id instead to measure another model on purpose.
 
 Environment overrides for testing without the real CLI:
 `RRSI_EVOLVE_POLICY_BIN` replaces the `claude` binary used by the trial
@@ -162,7 +165,8 @@ policy, and `RRSI_EVOLVE_LLM=fake:<path.py>` replaces the search-role LLM.
 
 Every evaluation is `|evolve tasks| x k` headless Claude Code sessions. With
 this suite's defaults that is **4 x 2 = 8 `claude -p` policy sessions per
-evaluation** (measured on haiku: about $0.17 and 35 s for the baseline).
+evaluation** (measured on haiku: about $0.17 and 35 s for the baseline; on
+opus, the default for most people, expect several times that).
 
 The search roles are multi-turn loops, and with the default `claude-cli`
 backend every turn is a separate `claude -p` call that re-sends the

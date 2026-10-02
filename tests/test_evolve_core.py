@@ -205,9 +205,8 @@ def test_config_engineering_fields():
     assert cfg.llm_backend == "claude-cli"
     assert cfg.llm_timeout_s == 900
     assert cfg.b_anneal_endpoint is False
-    assert cfg.proposer_model == "opus"          # deviation 1: default models
-    assert cfg.analyst_model == "opus"
-    assert cfg.critic_model == "opus"
+    # deviation 1: the roles default to the model you use (resolved by the CLI)
+    assert cfg.proposer_model == cfg.analyst_model == cfg.critic_model == "inherit"
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "rrsi.json"
         p.write_text(json.dumps({"llm_backend": "fake:/x.py", "unknown_key": 1}))

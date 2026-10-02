@@ -1,7 +1,7 @@
 {
   "_doc": "Routes are tried in order; the first match selects the policy. Path globs are fnmatch patterns ('*' crosses '/') matched against the path relative to the project, the absolute path and the basename. A tool call no route matches passes through untouched. `hook --policy NAME` on the command line skips routing.",
   "defaults": {
-    "model": "haiku",
+    "model": "inherit",
     "timeout_s": 85,
     "on_reject": "deny",
     "on_uncertain": "ask",

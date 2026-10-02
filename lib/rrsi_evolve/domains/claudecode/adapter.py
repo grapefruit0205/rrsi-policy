@@ -59,6 +59,7 @@ for _p in (str(HERE.parent.parent), str(HERE)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 from rrsi_evolve.domain import Domain          # noqa: E402
+from rrsi_policy import models                 # noqa: E402
 from rrsi_evolve.evaluate import TaskResult    # noqa: E402
 from rrsi_evolve import netproxy                # noqa: E402
 from rrsi_evolve.procenv import child_env, pinned_settings, session_residue  # noqa: E402
@@ -430,7 +431,10 @@ class ClaudeCodeDomain(Domain):
         cfg = dict(raw_cfg or {})
         self.harness_path = cfg.get("harness_path", "harness")
         self.tasks_dir = cfg.get("tasks_dir", "tasks")
-        self.policy_model = cfg.get("policy_model", "sonnet")
+        # "inherit" (default): the model you use, so the score is about it;
+        # resolved once here and pinned per run directory by the CLI
+        self.policy_model, self.policy_model_source = models.resolve(
+            cfg.get("policy_model", models.INHERIT), cwd=repo)
         self.policy_label = cfg.get("policy_label", self.policy_model)
         self.policy_effort = cfg.get("policy_effort")
         if self.policy_effort not in (None, "low", "medium", "high", "xhigh", "max"):

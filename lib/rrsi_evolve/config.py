@@ -53,9 +53,9 @@ class RRSIConfig:
     n_fail_traces: int = 22
     n_success_traces: int = 6
     eval_parallel: int = 1          # candidates evaluated concurrently
-    proposer_model: str = "opus"
-    analyst_model: str = "opus"
-    critic_model: str = "opus"
+    proposer_model: str = "inherit"     # "inherit": the model you use
+    analyst_model: str = "inherit"
+    critic_model: str = "inherit"
     # ---- Claude Code transport knobs (rrsi-evolve) -----------------------
     llm_backend: str = "claude-cli"
     llm_timeout_s: int = 900

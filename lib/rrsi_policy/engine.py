@@ -18,6 +18,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import models
 from .ledger import Ledger
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
@@ -76,6 +77,7 @@ class ToolCall:
     added: str = ""                  # only the text this call introduces
     context: str = ""
     tool_input: dict = field(default_factory=dict)
+    transcript_path: str = ""        # the live session's, to inherit its model
 
     @property
     def target(self) -> str:
@@ -110,7 +112,8 @@ def from_hook(ev: dict, max_context: int = 6000) -> ToolCall:
     cwd = ev.get("cwd") or os.getcwd()
     ti = ev.get("tool_input") or {}
     call = ToolCall(tool=ev.get("tool_name", ""), cwd=cwd, project=project_of(cwd),
-                    session_id=ev.get("session_id", ""), call_key=call_key(ev), tool_input=ti)
+                    session_id=ev.get("session_id", ""), call_key=call_key(ev), tool_input=ti,
+                    transcript_path=ev.get("transcript_path") or "")
     fp = ti.get("file_path") or ti.get("notebook_path")
     if fp:
         p = Path(fp) if os.path.isabs(fp) else Path(cwd) / fp
@@ -278,7 +281,9 @@ def evaluate(cfg: dict, policy_name: str, call: ToolCall, route_name: str,
 
     system = resolve_asset(cfg, pol["prompt"]).read_text()
     schema = json.loads(resolve_asset(cfg, pol["schema"]).read_text())
-    model = model or os.environ.get("RRSI_POLICY_MODEL") or pol.get("model") or d["model"]
+    model = model or os.environ.get("RRSI_POLICY_MODEL") or pol.get("model") or d.get("model")
+    # "inherit" (the default): judge with the model the session itself runs on
+    model, _src = models.resolve(model, call.cwd, call.transcript_path)
     payload = build_payload(cfg, call, route_name, hint, led)
     out, meta = call_claude(system, payload, schema, model, cfg)
     verdict = out["verdict"]

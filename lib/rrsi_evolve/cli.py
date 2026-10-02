@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rrsi_evolve import gitops as G                 # noqa: E402
 from rrsi_evolve import llm                         # noqa: E402
+from rrsi_policy import models                      # noqa: E402
 from rrsi_evolve.config import RRSIConfig           # noqa: E402
 from rrsi_evolve.domain import load_domain          # noqa: E402
 from rrsi_evolve.driver import drive                # noqa: E402
@@ -63,6 +64,42 @@ def _exit_on_signal(signum, _frame):
     # (temp dirs, the per-job state copy, child process groups) still run
     raise SystemExit(128 + signum)
 
+
+
+EVAL_CMDS = {"smoke", "baseline", "round", "run", "heldout", "reevaluate"}
+
+
+def _resolve_models(cfg, domain, repo: Path, run_dir: Path, cmd: str) -> None:
+    """Resolve "inherit" model knobs to the model you use, and keep a run
+    directory on the policy model its frontier was measured with: scores from
+    two models are not comparable, so a later run on another model stops."""
+    for f in ("proposer_model", "analyst_model", "critic_model"):
+        if models.is_inherit(getattr(cfg, f)):
+            setattr(cfg, f, models.resolve(None, cwd=repo)[0])
+    pm = getattr(domain, "policy_model", None)
+    if pm is None or cmd not in EVAL_CMDS:
+        return
+    src = getattr(domain, "policy_model_source", "config")
+    print(f"[rrsi] policy model: {pm} (from {src})", file=sys.stderr)
+    pin = run_dir / "policy_model.json"
+    if pin.is_file():
+        try:
+            pinned = json.loads(pin.read_text()).get("policy_model")
+        except (OSError, ValueError, AttributeError):
+            pinned = None
+        if pinned and pinned != pm:
+            sys.exit(f"rrsi-evolve: this run directory was measured on {pinned!r}, but the "
+                     f"policy model now resolves to {pm!r} (from {src}). Scores from two "
+                     f"models are not comparable. Set \"policy_model\": \"{pinned}\" in "
+                     f"rrsi.json to continue this run, or pass --runs <new dir> to start "
+                     f"over on {pm!r}.")
+        return
+    if (run_dir / "frontier.json").is_file():
+        print(f"[rrsi] warning: {run_dir} predates model pinning; cannot tell which "
+              f"model its frontier was measured on", file=sys.stderr)
+        return
+    run_dir.mkdir(parents=True, exist_ok=True)
+    pin.write_text(json.dumps({"policy_model": pm, "source": src}, indent=1) + "\n")
 
 def main():
     import signal
@@ -151,6 +188,7 @@ def main():
     llm.configure(env_passthrough=raw.get("env_passthrough", []))
 
     domain = load_domain(name, repo, raw)
+    _resolve_models(cfg, domain, repo, runs_root / name, args.cmd)
     run = Run(domain, cfg, repo, runs_root)
 
     if args.cmd == "baseline":
