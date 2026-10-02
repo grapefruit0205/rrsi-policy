@@ -45,6 +45,13 @@ Signed in with a Pro or Max subscription and no `ANTHROPIC_API_KEY`, the
 trials and roles are not billed per call; they draw on your plan's usage
 limits, so a long run can use up a session or weekly limit instead.
 
+**Status: experimental.** The loop has not yet shown a measured gain. On
+Opus 5.5 our suites (18 hard tasks: multi-turn conversations, long English
+logs, constraints that pile up over turns) already scored about 1.0, so there
+was nothing to improve. The loop only helps where your model actually fails:
+run `rrsi-evolve baseline` first and check that it scores below 1.0. Good
+tasks and checkers are most of the work.
+
 ---
 
 Two tools that bring [google-research/rrsi](https://github.com/google-research/rrsi)
@@ -205,6 +212,10 @@ rrsi-evolve mine                               # task ideas from your transcript
 
 [examples/evolve-demo](examples/evolve-demo/) is a five-task suite with the
 task format, the hidden-checker conventions and a cost breakdown.
+A task can be a conversation: `"turns"` sends several user messages, each
+after the previous answer, in one session, and checkers get the trial's
+stream-json transcript as `RRSI_STREAM`, so they can grade what the agent
+replied as well as what it changed.
 `readjudicate`, `reevaluate`, `calibrate` and `status` work as in RRSI.
 
 **What is RRSI's code.** The selection, history, components, evaluation,

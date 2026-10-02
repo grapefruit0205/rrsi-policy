@@ -37,6 +37,12 @@ CLAUDE.md, 스킬, 훅을 고쳐도 실제로 나아졌는지 알기 어렵습�
 Pro·Max 구독으로 로그인해 쓰면 호출마다 청구되지 않고 요금제의 사용량 한도에서 빠집니다. 그래서 긴
 실행은 돈 대신 세션·주간 한도를 다 쓸 수 있습니다.
 
+**상태: 실험 단계.** 개선 루프가 점수를 올린 사례는 아직 없습니다. Opus 5.5로 돌린 저희 태스크 묶음
+(여러 턴 대화, 긴 영어 로그, 턴마다 쌓이는 조건 등 어려운 태스크 18개)은 이미 거의 1.0이라 개선할
+여지가 없었습니다. 루프는 지금 모델이 실제로 틀리는 태스크가 있을 때만 의미가 있습니다. 먼저
+`rrsi-evolve baseline`을 돌려 1.0보다 낮은지 확인하세요. 좋은 태스크와 채점기를 만드는 게 사실상
+본 작업입니다.
+
 ---
 
 [google-research/rrsi](https://github.com/google-research/rrsi)를 Claude Code 하네스(CLAUDE.md,
@@ -181,6 +187,10 @@ rrsi-evolve mine                               # 대화 기록에서 태스크 �
 [examples/evolve-demo](examples/evolve-demo/)에 태스크 5개짜리 예제가 있습니다. 태스크 형식,
 숨겨진 checker 작성 규칙, 비용 내역이 들어 있습니다. `readjudicate`, `reevaluate`, `calibrate`,
 `status`는 RRSI와 똑같이 동작합니다.
+
+태스크를 대화로 만들 수도 있습니다. `"turns"`에 사용자 메시지 여러 개를 넣으면 한 세션 안에서 앞
+답이 끝날 때마다 하나씩 보내고, checker는 trial의 stream-json 대화 기록을 `RRSI_STREAM`으로 받아
+파일 변경뿐 아니라 에이전트가 한 답도 채점할 수 있습니다.
 
 **RRSI 코드 그대로인 부분.** selection, history, components, evaluate, calibrate, critic,
 digester, analyst 모듈은 주석을 빼면 RRSI 코드 그대로입니다. schedule, git 처리, proposer, loop,
