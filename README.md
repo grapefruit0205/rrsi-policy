@@ -39,7 +39,11 @@ trials, search roles and the critic all run on it (see
 
 **Cost:** measured on haiku, the demo's baseline (8 trials) was $0.17 and one
 round $1.74. On your own model (opus, for most people) expect several times
-more ([cost warning](examples/evolve-demo/README.md#cost-warning)).
+more ([cost warning](examples/evolve-demo/README.md#cost-warning)). Dollar
+figures are the API-equivalent cost Claude Code reports (`total_cost_usd`).
+Signed in with a Pro or Max subscription and no `ANTHROPIC_API_KEY`, the
+trials and roles are not billed per call; they draw on your plan's usage
+limits, so a long run can use up a session or weekly limit instead.
 
 ---
 

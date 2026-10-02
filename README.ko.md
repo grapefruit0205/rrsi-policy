@@ -33,6 +33,9 @@ CLAUDE.md, 스킬, 훅을 고쳐도 실제로 나아졌는지 알기 어렵습�
 
 **비용:** haiku 기준으로 데모의 baseline(trial 8개)이 $0.17, 한 라운드가 $1.74였습니다. 쓰시는
 모델(대부분 opus)로 돌리면 몇 배 듭니다([비용 경고](examples/evolve-demo/README.md#cost-warning)).
+달러 금액은 Claude Code가 보고하는 API 환산 비용(`total_cost_usd`)입니다. `ANTHROPIC_API_KEY` 없이
+Pro·Max 구독으로 로그인해 쓰면 호출마다 청구되지 않고 요금제의 사용량 한도에서 빠집니다. 그래서 긴
+실행은 돈 대신 세션·주간 한도를 다 쓸 수 있습니다.
 
 ---
 

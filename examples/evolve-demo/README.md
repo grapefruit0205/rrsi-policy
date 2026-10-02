@@ -163,6 +163,11 @@ policy, and `RRSI_EVOLVE_LLM=fake:<path.py>` replaces the search-role LLM.
 
 ## Cost warning
 
+Dollar figures below are the API-equivalent cost Claude Code reports. On a
+Pro or Max subscription (no `ANTHROPIC_API_KEY`) the same runs are not
+billed per call but count against your plan's session and weekly usage
+limits; read "cost" as "how much of your limit".
+
 Every evaluation is `|evolve tasks| x k` headless Claude Code sessions. With
 this suite's defaults that is **4 x 2 = 8 `claude -p` policy sessions per
 evaluation** (measured on haiku: about $0.17 and 35 s for the baseline; on
