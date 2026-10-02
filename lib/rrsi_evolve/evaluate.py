@@ -94,11 +94,17 @@ def aggregate(job: str, k: int, per_task: dict, extra: dict | None = None) -> Ev
 
 
 def evaluate(domain, root: Path, runs_dir: Path, job: str, ids: list[str],
-             k: int, log_prefix: str = "") -> EvalResult:
+             k: int, log_prefix: str = "", retry_missing: bool = True) -> EvalResult:
     """Run H' (the harness checked out under `root`) on `ids` with k trials and
     score it. Resume-safe: the domain runner fills only missing trials."""
     domain.run(root, runs_dir, job, ids, k, log_prefix=log_prefix)
     per_task, extra = domain.score(runs_dir, job, ids, k)
+    if sum(t.missing for t in per_task.values()) and retry_missing:
+        # a missing trial is an infrastructure failure (an overloaded gateway, a
+        # restarted proxy), not the policy's: run the empty slots once more
+        # before they count as 0
+        domain.run(root, runs_dir, job, ids, k, log_prefix=log_prefix)
+        per_task, extra = domain.score(runs_dir, job, ids, k)
     return aggregate(job, k, per_task, extra)
 
 

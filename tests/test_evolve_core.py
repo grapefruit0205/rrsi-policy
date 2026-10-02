@@ -289,3 +289,31 @@ if __name__ == "__main__":
                 fails += 1
                 print(f"FAIL {name}: {e!r}")
     sys.exit(1 if fails else 0)
+
+
+def test_evaluate_reruns_missing_trials_once(tmp_path):
+    """A missing trial is infrastructure, not the policy: evaluate() runs the
+    empty slots once more before they count as 0."""
+    from rrsi_evolve.evaluate import TaskResult, evaluate
+
+    class Flaky:
+        def __init__(self, fail_runs):
+            self.runs, self.fail_runs = 0, fail_runs
+
+        def run(self, root, runs_dir, job, ids, k, log_prefix=""):
+            self.runs += 1
+
+        def score(self, runs_dir, job, ids, k):
+            miss = 1 if self.runs <= self.fail_runs else 0
+            return {"t": TaskResult(rewards=[1.0] * (k - miss) + [0.0] * miss,
+                                    missing=miss)}, {}
+
+    d = Flaky(fail_runs=1)
+    ev = evaluate(d, tmp_path, tmp_path, "j", ["t"], 3)
+    assert d.runs == 2 and ev.missing == 0 and ev.S == 1.0
+    d = Flaky(fail_runs=5)              # still missing after the retry: counted, no loop
+    ev = evaluate(d, tmp_path, tmp_path, "j", ["t"], 3)
+    assert d.runs == 2 and ev.missing == 1
+    d = Flaky(fail_runs=0)              # nothing missing: one run
+    evaluate(d, tmp_path, tmp_path, "j", ["t"], 3)
+    assert d.runs == 1
