@@ -66,3 +66,17 @@ def skill(skill_md: str, scope: str) -> str:
 
 def critic(system: str, scope: str) -> str:
     return system + CRITIC_AMENDMENT if check(scope) == "repo" else system
+
+
+def banner(scope: str, explicit: bool) -> str:
+    """One line for round/run: which scope, and what that means for installing."""
+    if scope == "repo":
+        return ("[rrsi] harness scope: repo (the harness may record this repository's "
+                "conventions: install it in this repository's .claude/ and CLAUDE.md, "
+                "not in ~/.claude)")
+    if explicit:
+        return ("[rrsi] harness scope: general (for a harness shared across projects, "
+                "e.g. ~/.claude or a subagent prompt)")
+    return ("[rrsi] harness scope: general (harness_scope is not set in rrsi.json; if this "
+            "harness serves only this repository, set \"harness_scope\": \"repo\" so it "
+            "can learn the repository's conventions)")

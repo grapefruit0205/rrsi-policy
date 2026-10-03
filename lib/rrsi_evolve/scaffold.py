@@ -41,6 +41,7 @@ RRSI_JSON = {
     "n_success_traces": 3,
     "eval_parallel": 1,
     "domain": "claudecode",
+    "harness_scope": "repo",
     "policy_model": "inherit",
     "proposer_model": "inherit",
     "analyst_model": "inherit",
@@ -147,7 +148,9 @@ exit $?
 """
 
 NEXT_STEPS = """Scaffolded rrsi-evolve files in {repo}:
-  rrsi.json            claudecode defaults (T=4, k=2, m=2)
+  rrsi.json            claudecode defaults (T=4, k=2, m=2, harness_scope "repo":
+                       the harness is for this repository; use "general" for a
+                       harness shared across projects, e.g. ~/.claude)
   harness/CLAUDE.md    the starting harness
   tasks/hello-file/    example task: write one exact file
   tasks/fix-off-by-one/  example task: fix a seeded off-by-one bug

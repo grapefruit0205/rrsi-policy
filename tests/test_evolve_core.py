@@ -362,3 +362,16 @@ def test_critic_review_passes_scope_to_the_reviewer(monkeypatch):
     critic.review(D(), "+ a line\n", "m", "mode", scope="repo")
     assert "HARNESS SCOPE: repo" not in seen[0]
     assert "HARNESS SCOPE: repo" in seen[1]
+
+
+def test_init_defaults_to_repo_scope_and_banner_says_where_to_install(tmp_path):
+    from rrsi_evolve import scope
+    from rrsi_evolve.scaffold import init
+    init(tmp_path)
+    raw = json.loads((tmp_path / "rrsi.json").read_text())
+    assert raw["harness_scope"] == "repo"
+    assert RRSIConfig.load(tmp_path / "rrsi.json").harness_scope == "repo"
+    assert "not in ~/.claude" in scope.banner("repo", True)
+    # a config without the key keeps the old behaviour and says how to opt in
+    assert "set \"harness_scope\": \"repo\"" in scope.banner("general", False)
+    assert "repo" not in scope.banner("general", True).split("(")[0]

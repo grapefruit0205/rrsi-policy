@@ -44,6 +44,7 @@ from rrsi_evolve.driver import drive                # noqa: E402
 from rrsi_evolve.loop import Run                    # noqa: E402
 from rrsi_evolve.schedule import budget_table       # noqa: E402
 from rrsi_evolve.scaffold import init               # noqa: E402
+from rrsi_evolve import scope                       # noqa: E402
 
 OVERRIDES = ["T", "k", "m", "b_min", "b_max", "w", "m_draft", "delta", "delta_z",
              "beta0", "beta1", "w_s", "w_c", "w_n", "n_prune", "eval_parallel"]
@@ -202,6 +203,8 @@ def main():
 
     domain = load_domain(name, repo, raw)
     _resolve_models(cfg, domain, repo, runs_root / name, args.cmd)
+    if args.cmd in ("round", "run"):
+        print(scope.banner(cfg.harness_scope, "harness_scope" in raw), file=sys.stderr)
     run = Run(domain, cfg, repo, runs_root)
 
     if args.cmd == "baseline":
