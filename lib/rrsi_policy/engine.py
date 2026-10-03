@@ -144,11 +144,18 @@ def from_hook(ev: dict, max_context: int = 6000) -> ToolCall:
 
 
 # ---------------------------------------------------------------- routing --
+# A Claude Code worktree lives at <repo>/.claude/worktrees/<name>/. Paths are
+# matched as seen from inside it, so its own .claude/ and CLAUDE.md are harness
+# but its ordinary code does not match "*/.claude/*".
+_WORKTREE = re.compile(r"^(?:.*?/)?\.claude/worktrees/[^/]+/")
+
+
 def _path_match(call: ToolCall, patterns: list[str]) -> bool:
     if not call.file:
         return False
-    cands = [call.rel or "", call.file, os.path.basename(call.file)]
-    return any(fnmatch.fnmatch(c, pat) for pat in patterns for c in cands)
+    cands = [_WORKTREE.sub("", c) for c in (call.rel or "", call.file)]
+    cands.append(os.path.basename(call.file))
+    return any(fnmatch.fnmatch(c, pat) for pat in patterns for c in cands if c)
 
 
 def route(cfg: dict, call: ToolCall) -> tuple[str | None, str | None]:

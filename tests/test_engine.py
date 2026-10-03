@@ -71,6 +71,46 @@ def test_routes(proj):
     assert route("Bash", {"command": "ls"}) is None
 
 
+def test_worktree_code_is_not_harness(proj):
+    """Inside <repo>/.claude/worktrees/<name>/ only the worktree's own harness routes."""
+    def route(tool, ti):
+        return json.loads(run(["route"], event(proj, "PreToolUse", "t", tool, ti)).stdout)["policy"]
+    wt = proj / ".claude/worktrees/wt"
+    edit = lambda p: {"file_path": str(p), "old_string": "a", "new_string": "b"}
+    assert route("Edit", edit(wt / "src/app.py")) == "secrets"
+    assert route("Edit", edit(wt / ".claude/settings.json")) == "harness-critic"
+    assert route("Edit", edit(wt / "CLAUDE.md")) == "harness-critic"
+    assert route("Bash", {"command": f"echo hi > {wt}/src/a.py"}) is None
+    assert route("Bash", {"command": f"echo '- x' >> {wt}/CLAUDE.md"}) == "harness-critic"
+
+
+@pytest.mark.parametrize("cmd", [
+    "cat > .claude/settings.json <<'EOF'\n{}\nEOF",
+    "sed -i 's/a/b/' CLAUDE.md",
+    "tee -a ~/.claude/CLAUDE.md < notes",
+    "rm .claude/hooks/guard.sh",
+    "cp /tmp/s.json ~/.claude/settings.json",
+    "git checkout -- CLAUDE.md",
+    "python3 - <<'EOF'\nopen('.claude/skills/x/SKILL.md', 'w').write('x')\nEOF",
+])
+def test_bash_writing_harness_routes(proj, cmd):
+    res = json.loads(run(["route"], event(proj, "PreToolUse", "t", "Bash", {"command": cmd})).stdout)
+    assert res["policy"] == "harness-critic"
+
+
+@pytest.mark.parametrize("cmd", [
+    "ls ~/.claude/plugins 2>/dev/null",
+    "grep -r foo ~/.claude/projects 2>/dev/null | head",
+    "cp ~/.claude/settings.json /tmp/backup.json",
+    "sed -n 1,20p CLAUDE.md",
+    "python3 -c 'print(open(\"CLAUDE.md\").read())'",
+    "cd .claude/worktrees/wt && npm test > out.log 2>&1",
+])
+def test_bash_reading_harness_does_not_route(proj, cmd):
+    res = json.loads(run(["route"], event(proj, "PreToolUse", "t", "Bash", {"command": cmd})).stdout)
+    assert res["policy"] is None
+
+
 # ------------------------------------------------------------- decisions --
 def test_accept_prints_nothing_never_allow(proj):
     assert edit(proj, "t1", "# rules\n", "# rules\n- run tests\n") is None
