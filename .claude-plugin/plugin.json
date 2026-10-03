@@ -1,6 +1,6 @@
 {
   "name": "rrsi-policy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Runtime policy engine for Claude Code tool calls: routes each edit to a policy, screens harness changes (CLAUDE.md, skills, hooks, settings, MCP) with a claude -p critic before they land, and keeps a decision ledger. Critic rules adapted from google-research/rrsi (Apache-2.0).",
   "license": "Apache-2.0",
   "repository": "https://github.com/grapefruit0205/rrsi-policy",

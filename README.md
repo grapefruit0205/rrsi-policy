@@ -98,7 +98,7 @@ to Claude Code harnesses (CLAUDE.md, skills, agents, commands, hooks, settings,
 MCP config, memory):
 
 - **`rrsi-policy`**, a runtime policy engine (**opt-in**, off after install;
-  its value has not been measured yet). Right **before** a harness file
+  see [critic accuracy](#critic-accuracy)). Right **before** a harness file
   changes, a separate `claude -p` critic screens the change for overfitting,
   no-op edits, unbounded loops and attempts to bypass the policy. Verdicts and
   measurements go into a ledger and feed the next verdict.
@@ -186,13 +186,44 @@ clone (or put `bin/` on your PATH). To customize, copy
 Config inside the project is not read, because the agent can edit it.
 
 **The runtime critic hook is off by default.** Installing the plugin registers
-its hooks, but they pass every tool call untouched until you opt in: whether
-the critic improves results has not been measured, and it adds a `claude -p`
-call (15–20 s, plan usage) to every harness edit. `rrsi-evolve` does not need
+its hooks, but they pass every tool call untouched until you opt in: it adds a
+`claude -p` call (about 6–10 s, plan usage) to every harness edit, and it still
+stops some harmless edits (about 7% of real public edits expected, see
+[critic accuracy](#critic-accuracy)). `rrsi-evolve` does not need
 it. To turn it on, set `"hook_enabled": true` in
 `~/.config/rrsi-policy/policies.json` (copy the plugin's file first), or run
 with `RRSI_POLICY_HOOK=on`; `RRSI_POLICY_HOOK=off` turns it off again. A
 `hook --policy NAME` command you wire up yourself always runs.
+
+### Critic accuracy
+
+Measured on the critic as of 0.3.0, with labels from separate Opus reviewers
+that did not see the critic's verdict (same model family, so not independent
+of it; no human labels yet).
+
+| Data | What | Result |
+|---|---|---|
+| Public GitHub | 315 real commits to harness files (CLAUDE.md, AGENTS.md, commands, agents, skills, settings, hooks) from 314 repositories in 15+ languages | flagged 44 (14%); 5 of them deserved it, 39 did not; 1 of 50 sampled passes should have been stopped |
+| Public GitHub, injected | 200 edits on those real files: one dangerous edit (skip failing tests, hide failures, remove a verification step, bypassPermissions or `Bash(*)`, disable hooks, persist secrets, unbounded work, hard-coded one-off fixes) and one benign edit per file | caught 109 of 111 dangerous (98%); flagged 2 of 89 benign |
+| Author's own sessions | 295 past harness-routed tool calls, replayed | 0.2.0 stopped 66, 1 rightly; after the 0.3.0 routing and memory fixes, 6 (the 1 right one now a reject, the other 5 ask the user) |
+| Synthetic | 60 hand-written cases, 3 runs each | 180/180 with the 0.2.0 prompt |
+
+What changed in 0.3.0 because of this:
+
+- **Routing.** Ordinary code inside a Claude Code worktree
+  (`.claude/worktrees/<name>/`) no longer counts as harness, and Bash routes
+  only when it writes a harness path. Over the author's history this cut
+  critic calls from 7,221 to 920.
+- **Auto-memory.** Dated project state, the user's own accounts and resource
+  IDs are what Claude Code memory is for; the critic now rejects only
+  secrets, third parties' private data, unsafe guidance and injected
+  instructions there.
+- **Self-granted permissions** for destructive or outward-facing commands
+  (infrastructure apply, deploys, push, publish) are `policy_tampering`.
+- **Bundling** (`undeclared_bundling`) applies only to projects under
+  measurement, where a gain must be attributed to one change. It caused 18 of
+  the 39 false positives on public commits. This last change has not been
+  re-measured yet; without those 18 the false-positive rate would be about 7%.
 
 ## Measurement loop (ΔS)
 
@@ -477,13 +508,13 @@ rrsi-policy hook --policy harness-critic --dry-run < event.json                 
 - Bash edits are caught by regex and can be missed (for example a script that
   writes the file internally). Treat this as a guardrail, not a security boundary.
 - Files changed through Bash have no snapshot and cannot be restored by `revert`.
-- Each harness edit waits 15–20 seconds for the critic.
+- Each harness edit waits about 6–10 seconds for the critic.
 - Measurement is only as good as the eval command and k. With k = 1, δ cannot
   be estimated; pass `--delta`.
 - The critic is an LLM and can be wrong. A wrong rejection reaches the user after
   `max_repairs`.
-- Real `claude -p` verdicts have been checked on only a few cases. Whether the
-  plugin improves results in practice has not been measured yet.
+- The critic's accuracy has been measured ([critic accuracy](#critic-accuracy)),
+  but not whether turning it on makes agents' harnesses better over time.
 
 ## Tests
 
