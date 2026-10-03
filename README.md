@@ -2,17 +2,52 @@
 
 **English** · [한국어](README.ko.md)
 
-**Stop guessing whether your CLAUDE.md edit helped. Measure it.**
+**Turn your team's unwritten rules into a Claude Code harness that enforces
+them, and measure that it helped.**
 
-You add a rule to CLAUDE.md, a skill or a hook, and you can't tell whether
-things got better. A rule that helps one task can quietly break another.
+Claude writes good code, but it doesn't know your team's rules: which file is
+generated and must not be edited, where change notes go and in what format,
+whether new features hide behind a flag, how far a deploy may go, how a report
+should look. Most of that is written down nowhere, so reviewers repeat the
+same comments.
 
-`rrsi-evolve` runs a task suite built from your own work through Claude Code
-and scores it. It keeps a harness change only when the score rises clearly
-above noise and the added cost is worth it, and it drafts the changes itself.
-It is an unofficial port of the harness-improvement loop from Google
-Research's [RRSI](https://github.com/google-research/rrsi), not a Google
-product.
+`rrsi-evolve` runs Claude Code on tasks built from your own work, analyzes the
+failures and edits the project's harness (`CLAUDE.md`, hooks, skills). It keeps
+an edit only when it improves **held-out tasks it never trained on**, by more
+than noise and worth the added cost. It is an unofficial port of the
+harness-improvement loop from Google Research's
+[RRSI](https://github.com/google-research/rrsi), not a Google product.
+
+**What it did** (Opus 5.5, a made-up repository with 8 unwritten team rules,
+7 held-out tasks × 3 trials):
+
+| | held-out score | all team rules followed | tokens/trial |
+|---|---|---|---|
+| before | 0.724 | 0/21 | 78.9k |
+| [repo scope](#harness-scope), 3 rounds | **1.000** | **21/21** | 74.8k (−5%) |
+| general scope, 5 rounds | 0.728 | 0/21 | 95.7k (+21%) |
+
+Every held-out task, three long briefs included, went to 1.000. The code was
+right in all three rows; the whole gap was team rules. Opus already knows how
+to work. What it lacks is facts only your team knows, and only repo scope may
+write those down. The winning harness: a "Team conventions" section in
+CLAUDE.md, a PreToolUse hook that denies edits to the generated CHANGELOG, a
+Stop hook that sends the report back once if the required headings are
+missing, and a one-shot survey of the repo's convention files.
+
+**Why not write CLAUDE.md yourself?** You can. The loop does the parts that
+are hard by hand:
+
+- **What to write:** it starts from where Claude actually failed, which is
+  usually what nobody thought to document.
+- **Getting it followed:** a rule Claude keeps breaking becomes a hook that
+  blocks or bounces the action, not one more line in a long file.
+- **Knowing it worked:** every edit is checked on held-out tasks and dropped
+  if the score doesn't rise.
+- **Keeping it lean:** cost is measured too; an edit that adds tokens without
+  a gain is rejected.
+
+**How it decides:**
 
 - **Chosen by measurement.** Scores before and after a change are compared,
   and a gain inside the noise band is not accepted.
@@ -26,7 +61,8 @@ reads your local Claude Code transcripts and lists what you corrected most
 often ("I said only check it", "don't guess, verify", "answer in Korean"),
 with a task idea for each. No model is called and nothing leaves your machine.
 
-**Good fit:** a person or team that reuses one harness for similar work, on
+**Good fit:** a team whose repository has conventions Claude keeps breaking
+(repo scope), or a weaker model you use as a subagent (general scope), on
 Linux.
 **Not yet:** if you edit your harness only now and then. On macOS trials run
 without the sandbox, so scores are easier to game. Native Windows does not
@@ -45,12 +81,15 @@ Signed in with a Pro or Max subscription and no `ANTHROPIC_API_KEY`, the
 trials and roles are not billed per call; they draw on your plan's usage
 limits, so a long run can use up a session or weekly limit instead.
 
-**Status: experimental.** The loop has not yet shown a measured gain. On
-Opus 5.5 our suites (18 hard tasks: multi-turn conversations, long English
-logs, constraints that pile up over turns) already scored about 1.0, so there
-was nothing to improve. The loop only helps where your model actually fails:
-run `rrsi-evolve baseline` first and check that it scores below 1.0. Good
-tasks and checkers are most of the work.
+**Status: experimental.** Measured gains so far: the repo-scope result above
+(one made-up repository, not a benchmark), and on a weaker model, a GLM 5.3
+flash subagent prompt whose held-out failures fell from 8.8% to 3.4% (score
+0.912 → 0.966) in general scope. On Opus 5.5, general harness work showed no
+gain: our suites built from our own transcripts (18 hard tasks) already scored
+about 1.0. The loop learns the rules its checkers can see. It turns reviewer
+feedback into an enforced, measured harness; it does not discover rules
+nobody checks. Run `rrsi-evolve baseline` first and check that it scores
+below 1.0. Good tasks and checkers are most of the work.
 
 ---
 
@@ -301,7 +340,7 @@ transport, the endpoint of the b_t schedule).
   process that cleared its environment escapes the token), and the run
   prints a warning. `policy_wrapper` takes any other sandbox (firejail, a
   container); `sandbox: "bwrap"` makes the sandbox required.
-- <a id="harness-scope"></a>**Harness scope.** By default (`harness_scope:
+- <a id="harness-scope"></a>**Harness scope.** In general scope (`harness_scope:
   "general"`) the proposer and the critic treat anything specific to the
   suite's repository as overfitting: the harness should help in repositories
   it has never seen. That also keeps it from learning a team's own rules
