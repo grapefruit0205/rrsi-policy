@@ -97,7 +97,8 @@ Two tools that bring [google-research/rrsi](https://github.com/google-research/r
 to Claude Code harnesses (CLAUDE.md, skills, agents, commands, hooks, settings,
 MCP config, memory):
 
-- **`rrsi-policy`**, a runtime policy engine. Right **before** a harness file
+- **`rrsi-policy`**, a runtime policy engine (**opt-in**, off after install;
+  its value has not been measured yet). Right **before** a harness file
   changes, a separate `claude -p` critic screens the change for overfitting,
   no-op edits, unbounded loops and attempts to bypass the policy. Verdicts and
   measurements go into a ledger and feed the next verdict.
@@ -183,6 +184,15 @@ claude --plugin-dir ./rrsi-policy
 clone (or put `bin/` on your PATH). To customize, copy
 `policies/policies.json` to `~/.config/rrsi-policy/policies.json` and edit it.
 Config inside the project is not read, because the agent can edit it.
+
+**The runtime critic hook is off by default.** Installing the plugin registers
+its hooks, but they pass every tool call untouched until you opt in: whether
+the critic improves results has not been measured, and it adds a `claude -p`
+call (15–20 s, plan usage) to every harness edit. `rrsi-evolve` does not need
+it. To turn it on, set `"hook_enabled": true` in
+`~/.config/rrsi-policy/policies.json` (copy the plugin's file first), or run
+with `RRSI_POLICY_HOOK=on`; `RRSI_POLICY_HOOK=off` turns it off again. A
+`hook --policy NAME` command you wire up yourself always runs.
 
 ## Measurement loop (ΔS)
 

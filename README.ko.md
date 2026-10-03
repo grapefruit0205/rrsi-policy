@@ -76,7 +76,8 @@ Pro·Max 구독으로 로그인해 쓰면 호출마다 청구되지 않고 요�
 [google-research/rrsi](https://github.com/google-research/rrsi)를 Claude Code 하네스(CLAUDE.md,
 skills, agents, commands, hooks, settings, MCP 설정, memory)에 가져온 도구 두 개입니다.
 
-- **`rrsi-policy`**: 런타임 정책 엔진입니다. 하네스 파일이 바뀌기 **직전에** 별도의 `claude -p`
+- **`rrsi-policy`**: 런타임 정책 엔진입니다(**opt-in**: 설치해도 꺼져 있고, 효과는 아직 측정되지
+  않았습니다). 하네스 파일이 바뀌기 **직전에** 별도의 `claude -p`
   critic이 과적합, 무의미한 편집, 무한 루프, 정책 우회를 걸러냅니다. 판정과 측정 결과는 원장에
   쌓여 다음 판정에 다시 쓰입니다.
 - **`rrsi-evolve`**: RRSI의 탐색 루프 전체(Algorithm 1, 2)를 옮긴 것입니다. 사용자의 태스크
@@ -154,6 +155,13 @@ claude --plugin-dir ./rrsi-policy
 `bin/`을 PATH에 넣으세요. 설정을 바꾸려면
 `policies/policies.json`을 `~/.config/rrsi-policy/policies.json`으로 복사해 수정합니다.
 프로젝트 안의 설정 파일은 에이전트가 고칠 수 있으므로 읽지 않습니다.
+
+**런타임 critic 훅은 기본으로 꺼져 있습니다.** 플러그인을 설치하면 훅이 등록되지만, 직접 켜기 전까지는
+모든 도구 호출을 그대로 통과시킵니다. critic이 결과를 개선하는지 아직 측정되지 않았고, 하네스를 고칠
+때마다 `claude -p` 호출(15~20초, 요금제 사용량)이 붙기 때문입니다. `rrsi-evolve`는 이 훅이 필요 없습니다.
+켜려면 플러그인의 `policies/policies.json`을 `~/.config/rrsi-policy/policies.json`으로 복사해
+`"hook_enabled": true`로 바꾸거나, `RRSI_POLICY_HOOK=on`으로 실행하세요. `RRSI_POLICY_HOOK=off`로 다시
+끌 수 있습니다. 직접 연결한 `hook --policy NAME` 명령은 항상 동작합니다.
 
 ## 측정 루프 (ΔS)
 

@@ -37,6 +37,17 @@ def _record(led, call: ToolCall, route_name: str, dec: Decision) -> dict:
 
 
 # ------------------------------------------------------------------ hook --
+def hook_enabled(cfg: dict) -> bool:
+    """The runtime critic runs only when the user opted in (unmeasured, and it
+    costs a claude -p call per harness edit)."""
+    env = os.environ.get("RRSI_POLICY_HOOK", "").strip().lower()
+    if env in ("1", "on", "true", "yes"):
+        return True
+    if env in ("0", "off", "false", "no"):
+        return False
+    return cfg.get("hook_enabled") is True
+
+
 def cmd_hook(a) -> int:
     if os.environ.get(GUARD):
         return 0                      # inside our own critic or an eval run
@@ -45,6 +56,8 @@ def cmd_hook(a) -> int:
     except json.JSONDecodeError:
         return 0
     cfg = load_config(a.config)
+    if not (a.policy or hook_enabled(cfg)):
+        return 0                      # opt-in: off unless the user turned it on
     led = ledger_for(cfg)
 
     if ev.get("hook_event_name") == "PostToolUse":

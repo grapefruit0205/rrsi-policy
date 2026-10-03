@@ -1,5 +1,7 @@
 {
   "_doc": "Routes are tried in order; the first match selects the policy. Path globs are fnmatch patterns ('*' crosses '/') matched against the path relative to the project, the absolute path and the basename. A tool call no route matches passes through untouched. `hook --policy NAME` on the command line skips routing.",
+  "hook_enabled": false,
+  "_hook_doc": "The runtime critic hook is opt-in: its value has not been measured yet, and it adds a claude -p call (15-20 s, plan usage) to every harness edit. Set hook_enabled to true in ~/.config/rrsi-policy/policies.json, or RRSI_POLICY_HOOK=on, to turn it on. `hook --policy NAME` on the command line always runs. rrsi-evolve does not need it.",
   "defaults": {
     "model": "inherit",
     "timeout_s": 85,

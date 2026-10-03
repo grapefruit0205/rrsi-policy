@@ -28,6 +28,7 @@ def proj(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_LOG", str(tmp_path / "fake.log"))
     monkeypatch.delenv("RRSI_POLICY_ACTIVE", raising=False)
     monkeypatch.delenv("RRSI_POLICY_CONFIG", raising=False)
+    monkeypatch.setenv("RRSI_POLICY_HOOK", "on")
     return p
 
 
@@ -208,3 +209,22 @@ def test_cost_rule():
 
 def test_noise_band():
     assert selection.noise_band(0.01, 2, 2.0) == pytest.approx(0.02)
+
+
+def test_hook_is_opt_in(proj, tmp_path, monkeypatch):
+    """Installed but not turned on: the hook passes every call untouched,
+    calls no critic and writes no ledger."""
+    ti = {"file_path": str(proj / "CLAUDE.md"), "old_string": "# rules", "new_string": "# rules\n- x"}
+    off = {"RRSI_POLICY_HOOK": ""}
+    r = run(["hook"], event(proj, "PreToolUse", "t-off", "Edit", ti), off)
+    assert r.returncode == 0 and r.stdout.strip() == ""
+    assert not (tmp_path / "state" / "ledger.jsonl").exists()
+    assert not (tmp_path / "fake.log").exists()
+    # a user config with hook_enabled turns it on
+    cfg = json.loads((ROOT / "policies" / "policies.json").read_text())
+    cfg["hook_enabled"] = True
+    (tmp_path / "on.json").write_text(json.dumps(cfg))
+    r = run(["hook"], event(proj, "PreToolUse", "t-on", "Edit", ti),
+            {**off, "RRSI_POLICY_CONFIG": str(tmp_path / "on.json")})
+    assert r.returncode == 0
+    assert (tmp_path / "state" / "ledger.jsonl").exists()
