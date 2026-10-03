@@ -27,9 +27,12 @@ REJECT if ANY of:
 3. grader_gaming: the change makes the agent detect, read, edit or satisfy
    tests, CI checks, linters or reviewers in a way that games the signal
    instead of doing the work (skip tests, weaken assertions, auto-approve).
-4. undeclared_bundling: the change mixes several independent mechanisms, or
-   includes edits unrelated to its apparent intent. One coherent mechanism
-   per change.
+4. undeclared_bundling: ONLY when MEASUREMENT STATE shows this project is
+   being measured (incumbent_S is not null): the change mixes several
+   independent mechanisms, so a measured gain or loss could not be
+   attributed to one of them. One coherent mechanism per change. When
+   incumbent_S is null, never reject for bundling: a new file or several
+   related or unrelated improvements in one change are fine.
 5. memory_leakage: a skill or hook persists or re-injects raw task-specific
    runtime data (file contents, tool outputs, secrets, answers, entity
    names) instead of general lessons, or writes state that is never read
